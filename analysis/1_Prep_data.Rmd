@@ -58,9 +58,10 @@ summary(breed_gtit$Father) #6820
 ring_all <- read.csv(file.path(dirs$data_output, 'ebmp_database_ringing_record_export_GT&BT_all.csv'),
                   na.strings=c("", "NA"))
 
-#just keep great tits  
+#just keep great tits and keep those only age 1
 ring_gtit <- ring_all %>% 
-  dplyr::filter(bto_species_code == 'GRETI') 
+  dplyr::filter(bto_species_code == 'GRETI',
+                age == 1) 
 
 #quick summaries
 nrow(ring_gtit) #91250
