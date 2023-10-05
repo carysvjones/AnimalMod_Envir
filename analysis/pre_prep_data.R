@@ -57,13 +57,13 @@ ring2 <- read.csv(file.path(dirs$data_raw, 'ebmp_database_ringing_record_export_
 ring2021 <- read.csv(file.path(dirs$data_raw, 'ebmp_ringing_data_2021.csv'),
                   na.strings=c("", "NA"))
 
+ring2022 <- read.csv(file.path(dirs$data_raw, 'ebmp_ringing_2022.csv'), 
+                     na.strings=c("", "NA")) 
+
+
 nrow(ring2) #51566
 nrow(ring2021) #8197
-
-#read in 2022 data 
-ring2022 <- read.csv(file.path(dirs$data_raw, 'ebmp_ringing_2022.csv'), na.strings=c("", "NA")) 
-nrow(ring2022) #8197
-
+nrow(ring2022) #7469
 
 #bind
 ring2 <- rbind(ring2, ring2021, ring2022)
@@ -78,11 +78,11 @@ ring <- read.csv(file.path(dirs$data_raw, 'legacy_ringing_records_GT&BT_up_to_20
   clean$clean_ringing_data(.) %>%
   #keep only some columns
   dplyr::select(Pnum, age, sex, bto_species_code, bto_ring, yr, nb, retrap)
-nrow(ring) #151785
+nrow(ring) #179010
 
 # Clean Ringing data 2013-2022  -------------------------------------
 
-ring2 <- ring2 %>% 
+ring2_clean <- ring2 %>% 
   #clean with function - removes errors and cleans up dataframe
   clean$clean_ringing_data_2(.) %>%
   dplyr::mutate(Pnum = paste0(Date, '1', Site)) %>%
@@ -99,11 +99,11 @@ ring2 <- ring2 %>%
   #keep only selected columns
   dplyr::select(Pnum, age, sex, bto_species_code, bto_ring, yr, nb, retrap)
 
-nrow(ring2) #35282
+nrow(ring2_clean) #61343
 
 #bind
-ring_all <- rbind(ring, ring2)
-nrow(ring_all) #187067
+ring_all <- rbind(ring, ring2_clean)
+nrow(ring_all) #240353
 
 #save
 write.csv(ring_all, file = file.path(dirs$data_output, 'ebmp_database_ringing_record_export_GT&BT_all.csv'), row.names = F)
@@ -144,11 +144,11 @@ wood.outline <- wood.outline[1,]
 wood.outline <- sf::st_transform(wood.outline, 27700)
 
 #need breeding data with nest box locations 
-nrow(breed) #40206
+nrow(breed) #40255
 
 breeding.data <- breed %>%
   dplyr::inner_join(., nestbox, by = c('nest.box' = 'Box'))
-nrow(breeding.data) #37577
+nrow(breeding.data) #37620
 
 #get subset of just great tits
 breeding.data.G <- subset(breeding.data, Species == 'g' )
