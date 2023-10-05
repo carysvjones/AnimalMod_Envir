@@ -167,8 +167,8 @@ clean_ringing_data <- function(data){
     #get rid unringed
     dplyr::filter(bto_ring != 'unringed' &
                     bto_ring != 'UNRINGED' &
-                    #keep only not retraps
-                    retrap == 'N' &
+                    #keep only not retraps - will be removed later when jsut keep age 1
+                    # retrap == 'N' &
                     #keep only age 1 birds - no later!
                     # age == 1 & 
                     #keep those only in main woods
@@ -245,7 +245,7 @@ clean_ringing_data_2 <- function(data){
     #get rid of 2013 because that is in other data as well
     dplyr::filter(Date != '2013'&
                     #only not retraps
-                    Rtype == 'N' &
+                    # Rtype == 'N' &
                     #keep age 1 only - do later!
                     # Age == 1 &
                     #from Wytham main 
@@ -292,11 +292,10 @@ isdup <- function (x) duplicated (x) | duplicated (x, fromLast = TRUE)
 get_age <- function(data, ringing_data){
   
   #Get those we know when born
-  #use ringing data before cleaned - so have to read in 
-  ring_all <- ringing_data
   #just keep greti
-  ring_all_gtit <- ring_all %>%
-    dplyr::filter(bto_species_code == 'GRETI')
+  ring_all_gtit <- ringing_data %>%
+    dplyr::filter(bto_species_code == 'GRETI') %>%
+    dplyr::mutate(yr = as.integer(yr))
   
   #just get age for those that we know for sure in ringing dataset
   #use BTO age codes
@@ -307,43 +306,42 @@ get_age <- function(data, ringing_data){
                       age == '1J' ~ yr,
                       age == '3' ~ yr,
                       age == '3J' ~ yr,
-                      age == '5' ~ as.integer((yr-1)))) %>%
+                      age == '5' ~ as.integer((yr-1)),
+                      age == '6' ~ as.integer((yr-2)))) %>%
     dplyr::group_by(bto_ring) %>%
     #get earliest DOB for each if have more than 1 
-    dplyr::slice_min(Fem_DOB) %>%
+    tidyr::replace_na(list(Fem_DOB = Inf)) %>%  # replace missing values with Inf
+    dplyr::slice_min(n = 1, order_by = Fem_DOB) %>%  # select the row with the smallest Fem_Age
     #keep only 1 row per individual 
     dplyr::slice_head() %>%
     dplyr::ungroup() %>%
-    dplyr::select(bto_ring, Fem_DOB)
+    dplyr::select(bto_ring, Fem_DOB, age)
   
   #merge with breeding data 
   merged <- dplyr::left_join(data, ages, by = c('Mother' = 'bto_ring'))
-
+  
   #get age at breeding attempt for those that know DOB
   merged <- merged %>%
     dplyr::mutate(Fem_breed_age = merged$year - merged$Fem_DOB)
   #table(merged$Fem_breed_age)
-  #check and sort for any that are definitely wrong - less than 1 or more than 10, or NA
+  #check and sort for any that are definitely wrong - less than 1 or more than 10, Inf (stand in for unknown) or NA
   false_ageFem <- subset(merged, Fem_breed_age < 1 | 
                            Fem_breed_age > 10 | 
+                           Fem_breed_age == -Inf |
                            is.na(Fem_breed_age))$Mother
-  # #paste out number that had wrong age 
-  # num_false_ageFem <- length(unique(false_ageFem))
-  # perc_false_ageFem <- (length(unique(false_ageFem))/length(unique(merged$Mother))) * 100 #7.7%
-  # message(paste(num_false_ageFem, 'females with false age =', signif(perc_false_ageFem, digits = 3),'% of total'))
-  # 
+  
+  #various reasons why missing - some mistakes in data 
   #find these ones earliest breeding year and make their guess of DOB be 1 year before that 
   #assume that when first recorded breeding it is their 1st year actually breeding
   #because usually don't move far to breed would likely have been recorded if they did nest
   #in a box before
   if (length(false_ageFem) > 0){
     for(individual in false_ageFem){
-      sub <- merged[!is.na(merged$Mother) &
-                      merged$Mother == individual, ]
-      
-      #find earliest breeding_year recorded
+      sub <- merged[!is.na(merged$Mother) & #subset Mother that has false age, so exclude NA mothers
+                      merged$Mother == individual, ] 
+      #find earliest breeding_year recorded and replace Fem_DOB with that
       merged$Fem_DOB[!is.na(merged$Mother) &
-                       merged$Mother == individual] <- rep(min(sub$year) - 1, nrow(sub))
+                       merged$Mother == individual] <- rep(min(sub$year) - 1, nrow(sub)) 
     }
   }
   #recalc age 
@@ -352,9 +350,9 @@ get_age <- function(data, ringing_data){
   
   #return this dataset
   return(merged)
-
+  
 }
-      
+
 
 
 #' Remove second broods, for mothers, fathers, late broods - choose which to remove
