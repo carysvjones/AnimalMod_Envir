@@ -141,7 +141,7 @@ wood.outline <- sf::st_read(file.path(dirs$data_raw, '/maps/perimeter poly with 
 #(and the polygons go a bit nuts if you don't)
 wood.outline <- wood.outline[1,]
 #need to transform wood outline
-wood.outline <- st_transform(wood.outline, 27700)
+wood.outline <- sf::st_transform(wood.outline, 27700)
 
 #need breeding data with nest box locations 
 nrow(breed) #40206
@@ -182,8 +182,8 @@ for (i in unique(breeding.data$year)){
   breeding.data.G.SUB <- subset(breeding.data.G, year == i)
   
   #get voronoi polygons
-  territories_G <- sf::st_voronoi(st_union(breeding.data.G.SUB), box)
-  territories_G <- sf::st_intersection(st_cast(territories_G), sf::st_union(wood.outline))
+  territories_G <- sf::st_voronoi(sf::st_union(breeding.data.G.SUB), box)
+  territories_G <- sf::st_intersection(sf::st_cast(territories_G), sf::st_union(wood.outline))
   
   #joining the territory polygons back up with the individuals that bred in them
   territories_G <- sf::st_sf(geom = territories_G)
