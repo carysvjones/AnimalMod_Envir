@@ -270,6 +270,10 @@ clean_ringing_data_2 <- function(data){
                              'TX42807', 'TX42808')
   data <- droplevels(subset(data, !(Ring %in% double_reported_twice)))
   
+  #has ring TS45000 twice , Pnum 20111SW70 (in this brood ring number fits with others) and 
+  #20161SW44 (here does not fit) - remove Pnum == '20161SW44'
+  data <- droplevels(subset(data, !(Date == '2016' & Ring == 'TS45000')))
+  
   return(data)
   
 }
