@@ -167,7 +167,7 @@ clean_ringing_data <- function(data){
     #get rid unringed
     dplyr::filter(bto_ring != 'unringed' &
                     bto_ring != 'UNRINGED' &
-                    #keep only not retraps - will be removed later when jsut keep age 1
+                    #keep only not retraps - will be removed later when just keep age 1
                     # retrap == 'N' &
                     #keep only age 1 birds - no later!
                     # age == 1 & 
@@ -367,7 +367,7 @@ get_age <- function(data, ringing_data){
 #' @param late T or F to remove late broods.
 #' @return dataset with removed breeding attempts
 
-remove_late_broods <- function(data, mothers, fathers, late){
+remove_late_broods <- function(data, mothers, fathers, late, late_persection){
   
   if(mothers == T){
     #how many mothers have >1 in a given year 
@@ -418,6 +418,25 @@ remove_late_broods <- function(data, mothers, fathers, late){
       dplyr::group_by(year) %>%
       dplyr::filter(April.lay.date <= (sort(April.lay.date)[dplyr::n()*0.05] + 30)) %>%
       dplyr::ungroup()
+    
+    message(paste(sum(rem$tot), ' breeding attempts removed as late & likely 2nd broods'))
+  }
+  
+  if(late_persection == T){
+    output <- NULL
+    #Find first 5% in each year then add 30
+    rem <- data %>%
+      dplyr::group_by(year, Section) %>%
+      dplyr::mutate(threshold = sort(April.lay.date)[ceiling(dplyr::n() * 0.05)] + 30) %>%
+      dplyr::filter(April.lay.date > threshold) %>%
+      dplyr::summarise(tot = dplyr::n(), .groups = "drop")
+    
+    data <- data %>%
+      dplyr::group_by(year, Section) %>%
+      dplyr::mutate(threshold = sort(April.lay.date)[ceiling(dplyr::n() * 0.05)] + 30) %>%
+      dplyr::filter(April.lay.date <= threshold) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(-threshold)
     
     message(paste(sum(rem$tot), ' breeding attempts removed as late & likely 2nd broods'))
   }
