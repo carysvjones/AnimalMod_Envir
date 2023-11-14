@@ -6,6 +6,12 @@ date: '2023-01-26'
 
 # Dependencies
 ```{r}
+
+install.packages("groundhog")
+library("groundhog")
+pkgs <- c("rio","metafor")
+groundhog.library(pkgs, "2021-09-01")
+
 box::use(.. / R / dirs[dirs])
 box::use(clean = ../ R / clean_data)
 box::use(mods = ../ R / for_models)
@@ -197,7 +203,7 @@ table(breed_gtit_noNA_age$Fem_breed_age)
 
 #use function - decide which ones to use 
 #should say how many breeding attempts it gets rid of each time
-breed_gtit_noNA_age_sub <- remove_late_broods(breed_gtit_noNA_age, mothers = T, fathers = T, 
+breed_gtit_noNA_age_sub <- clean$remove_late_broods(breed_gtit_noNA_age, mothers = T, fathers = T, 
                                                     late = F, late_persection = T)
 nrow(breed_gtit_noNA_age_sub) #11746 
 
@@ -229,10 +235,8 @@ habitat_data <- read.csv(file.path(dirs$data_output, 'Habitat_data_nestboxes.csv
 gtit_data_sub_nb <- merge(breed_gtit_noNA_age_sub, habitat_data, by = 'Pnum')
 nrow(gtit_data_sub_nb) #11786 - only a few hundred missing from before 
 
-#cropped pop density @ 3 hectares
-gtit_data_sub_nb$area_polygon.G_crop3 <- gtit_data_sub_nb$area_polygon.G
-gtit_data_sub_nb$area_polygon.G_crop3[gtit_data_sub_nb$area_polygon.G > 30000] <- 30000
-summary(gtit_data_sub_nb$area_polygon.G_crop3)
+gtit_data_sub_nb <- gtit_data_sub_nb %>%
+  dplyr::mutate(area_polygon_sqrt = sqrt(area_polygon.G))
 
 
 # SPATIAL MATRIX ----------------------------------------------------------
@@ -275,7 +279,7 @@ multi_box <- gtit_data_sub_nb %>%
     alt2 = dplyr::lead(altitude.m.),
     north2 = dplyr::lead(northness),
     trees2 = dplyr::lead(No_trees_75m),
-    area2 = dplyr::lead(area_polygon.G_crop3),
+    area2 = dplyr::lead(area_polygon_sqrt),
     nest.box2 = dplyr::lead(nest.box),
     breeding_year2 = dplyr::lead(breeding_year)) %>%
   
@@ -284,7 +288,7 @@ multi_box <- gtit_data_sub_nb %>%
                 alt_diff = abs(alt2 - altitude.m.),
                 north_diff = abs(north2 - northness),
                 tree_diff = abs(trees2 - No_trees_75m), 
-                area_diff = abs(area2 - area_polygon.G_crop3)) %>%
+                area_diff = abs(area2 - area_polygon_sqrt)) %>%
   
   dplyr::ungroup() %>%
   dplyr::select(Mother, breeding_year, breeding_year2, x, y , x2, y2, nest.box, nest.box2, dist,
@@ -308,21 +312,6 @@ median(multi_box$dist) #60.85m
 mean(multi_box$dist) #93.1m
 range(multi_box$dist) #0 - 2647.5m
 
-multi_box_summ <- multi_box %>%
-  dplyr::summarise(dist_med = median(dist, na.rm = T), 
-                edge_med = median(edge_diff, na.rm = T),
-                alt_med = median(alt_diff, na.rm = T),
-                north_med = median(north_diff, na.rm = T),
-                tree_med = median(tree_diff, na.rm = T),
-                area_med = median(area_diff, na.rm = T))
-
-gtit_data_summ <- gtit_data_sub_nb %>%
-  dplyr::summarise(edge_med = median(edge.EDI., na.rm = T),
-                alt_med = median(altitude.m., na.rm = T),
-                north_med = median(northness, na.rm = T),
-                tree_med = median(No_trees_75m, na.rm = T),
-                area_med = median(area_polygon.G_crop3, na.rm = T))
-
 
 
 #MEAN COORDINATES OF NEST BOX FOR MULTI NESTERS
@@ -338,10 +327,9 @@ gtit_data_sub_nb <- gtit_data_sub_nb %>%
                 northness_mean = mean(northness),
                 edge_mean = mean(edge.EDI.),
                 No_trees_75m_mean = mean(No_trees_75m),
-                area_polygon_crop3_mean = mean(area_polygon.G_crop3)) %>%
+                area_polygon_sqrt_mean = mean(area_polygon_sqrt)) %>%
   dplyr::ungroup()
 
-unique(gtit_data_sub_nb$breeding_year)
 #output data
 write.csv(gtit_data_sub_nb, file = file.path(dirs$data_output,'GTIT_data_anim_mod.csv'), row.names = F)
 
