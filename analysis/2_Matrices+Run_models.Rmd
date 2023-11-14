@@ -20,63 +20,106 @@ box::use(mod = ../ R / for_models)
 
 box::use(readr[read_csv])
 box::use(ggplot2[...])
-box::use(dplyr)
+box::use(dplyr[...])
 box::use(moments)
 box::use(kinship2)
 box::use(sf)
 box::use(tidyr)
 box::use(pedantics)
 box::use(magrittr[`%>%`])
-box::use(asreml)
+box::use(asreml[...])
 box::use(Matrix)
 
-box::use(brms)
 
-remotes::install_github("stan-dev/cmdstanr")
-install_cmdstan()
 ```
 
 
 
-```{r}
+```{r Read in Data}
 
-gtit_data_sub_nb <- read.csv(file.path(dirs$data, 'GTIT_data_anim_mod.csv'), na.strings=c("", "NA"))
-nrow(gtit_data_sub_nb) #11526
+gtit_data_sub_nb <- read.csv(file.path(dirs$data_output, 'GTIT_data_anim_mod.csv'), na.strings=c("", "NA"))
+nrow(gtit_data_sub_nb) #11661
 
-gtit_data_sub_nb <- gtit_data_sub_nb %>%
-   dplyr::mutate_at(c('breeding_year', 'Mother', 'Fbreeding_age_group', 'nest.box'), as.factor) 
+
+gtit_data_sub_nb <- gtit_data_sub_nb %>% #don't make breeding year a factor?
+   mutate_at(c('breeding_year', 'Mother', 'Fbreeding_age_group', 'nest.box'), as.factor) 
 
 #to run with a subset 
 #put dates as range e.g. 2011:2021, or 'ALL' to get all years of data 
-breed_data <- mod$choose_data(gtit_data_sub_nb, years = 'ALL')
+breed_data <- gtit_data_sub_nb
+  mod$choose_data(gtit_data_sub_nb, years = 'ALL')
 unique(breed_data$breeding_year)
-nrow(breed_data) #11526
+nrow(breed_data) #11661
 
 
 #get distinct line for each mother with whole dataset
 breed_data_uniq <- breed_data %>%
-  dplyr::distinct(., Mother, .keep_all = TRUE)
-nrow(breed_data_uniq) #7595
-length(unique(breed_data_uniq$Mother)) #7595
+  distinct(., Mother, .keep_all = TRUE)
+  # filter(!is.na(alt_mean) & !is.na(No_trees_75m_mean))
+  
+nrow(breed_data_uniq) #7680
+length(unique(breed_data_uniq$Mother)) #7680
 
 ```
 
 
+```{r Correlation lay and hatch}
+
+box::use(brms[...])
+
+# Fit model
+fit <- brm(April.hatch.date ~ April.lay.date,
+           data = gtit_data_sub_nb)
+plot_slopes(fit, 'April.lay.date')
+
+
+# Print the summary of the fitted model
+summary(fit)
+plot(fit)
+
+
+
+library(marginaleffects)
+plot_slopes(fit,  variables = 'April.lay.date')
+
+mtcars %>%
+  data_grid(hp = seq_range(hp, n = 101)) %>%
+  # NOTE: this shows the use of ndraws to subsample within add_epred_draws()
+  # ONLY do this IF you are planning to make spaghetti plots, etc.
+  # NEVER subsample to a small sample to plot intervals, densities, etc.
+  tidybayes::add_epred_draws(fit, ndraws = 100) %>%
+  ggplot(aes(x = April.lay.date, y = April.hatch.date)) +
+  geom_line(aes(y = .epred, alpha = .1)) +
+  geom_point(data = gtit_data_sub_nb) +
+  scale_color_brewer(palette = "Dark2")
+
+
+LD_HD_mod <- lm(April.hatch.date ~ April.lay.date,
+   data = gtit_data_sub_nb)
+summary(LD_HD_mod)
+  
+effect_plot(LD_HD_mod, pred = displ, interval = TRUE, plot.points = TRUE)
+
+ggplot(gtit_data_sub_nb, aes(x = April.lay.date, y = April.hatch.date)) + 
+  geom_smooth(method = 'lm', se = T) + 
+  output_plot_theme
+
+
+```
+
+
+
 # ENVIRONMENT SIM MATRIX  -------------------------------------------------
 
-```{r}
+```{r Envir Matrix}
 
 # As environmental measures may occur on different scales, we first scale and center the environmental data.
 # This is done by taking away the mean (so the mean becomes 0) and dividing by the standard deviation for
 # each environmental measure (so the variance becomes 1).
 # First gets the relevant columns from the data
 
-#need to make single line for each Mother
-#keep just 1 line per id 
-nrow(breed_data_uniq) #774
 env_var <- breed_data_uniq[,c("alt_mean", "northness_mean", "edge_mean", "No_trees_75m_mean",
-                        "area_polygon_crop3_mean")]
-
+                        "area_polygon_sqrt")]
 
 # Centers the data, and scales by standard deviation
 env_var <- scale(env_var, center = T, scale = T)
@@ -89,14 +132,16 @@ env_var_euc <- as.matrix(dist(env_var, method = "euclidean", diag = T, upper = T
 env_var_euc_scal <- 1 - env_var_euc / max (env_var_euc, na.rm = TRUE)
 colnames(env_var_euc_scal) <- rownames(env_var_euc_scal) <- breed_data_uniq$Mother 
 
+p<-as(solve(env_var_euc_scal),"dgCMatrix")
+p<-as.matrix(env_var_euc_scal)
+
 #make positive definite so can run in animal model 
 env_var_euc_scal_PD <- Matrix::nearPD(env_var_euc_scal)
 env_matrix <- env_var_euc_scal_PD$mat
 
-saveRDS(env_matrix, file = file.path(dirs$data,'env_matrix.rds'))
+saveRDS(env_matrix, file = file.path(dirs$data_output,'env_matrix.rds'))
 
-env_matrix <- readRDS(file.path(dirs$data, 'env_matrix.rds'))
-
+env_matrix <- readRDS(file.path(dirs$data_output, 'env_matrix.rds'))
 
 
 ```
@@ -104,7 +149,7 @@ env_matrix <- readRDS(file.path(dirs$data, 'env_matrix.rds'))
 
 # SPATIAL MATRIX ---------------------------------------------------------
 
-```{r}
+```{r Spatial Matrix}
 
 #make distance matrix
 #make coordinates into geometries 
@@ -121,44 +166,55 @@ spat_mat_conv <- as.numeric(spat_mat)
 dim(spat_mat_conv) <- c(nrow(spatial_geom), nrow(spatial_geom)) #give it dimensions?
 colnames(spat_mat_conv) <- rownames(spat_mat_conv) <- spatial_geom$Mother
 
+#save raw distance matrix
+saveRDS(spat_mat_conv, file = file.path(dirs$data_output,'spatial_matrix_raw.rds'))
+
 #scale the matrix - so diagonal is 1
-spat_mat_conv_sc <- 1- spat_mat_conv / max (spat_mat_conv, na.rm=TRUE)
+spat_mat_conv_sc <- 1 - spat_mat_conv / max (spat_mat_conv, na.rm=TRUE)
 spat_mat_conv_sc_PD <- Matrix::nearPD(spat_mat_conv_sc)
 spatial_matrix <- spat_mat_conv_sc_PD$mat
 
-subset(spatial_matrix, spatial_matrix[,4] == 16)
+subset(spatial_matrix, spatial_matrix[,1] == 608449)
 
-saveRDS(spatial_matrix, file = file.path(dirs$data,'spatial_matrix.rds'))
+saveRDS(spatial_matrix, file = file.path(dirs$data_output,'spatial_matrix.rds'))
 
-spatial_matrix <- readRDS(file.path(dirs$data, 'spatial_matrix.rds'))
-
+spatial_matrix <- readRDS(file.path(dirs$data_output, 'spatial_matrix.rds'))
 
 ```
 
 
 PLOTS COMPARING & MANTEL/OTHER TESTS
 
-```{r}
+```{r Compare Matrices}
 
+#Correlation of environmental variables
+head(env_var)
 
+mantel_env <- vegan::mantel(env_var$alt_mean, env_var$northness_mean, method = "spearman", permutations = 1, na.rm = TRUE)
+
+mantel_matrices <- vegan::mantel(env_matrix, spatial_matrix, method = "spearman", permutations = 1, na.rm = TRUE)
+
+mant()
 
 
 
 ```
 
 
-RUN MODELS
 
 
-```{r}
 
-# RUN MODELS --------------------------------------------------------------
+# RUN MODELS ---------------------------------------------------------
+
+
+
+```{r Prep Ped}
+
 
 #pedigree data input 
-ped_data <- read.csv(file.path(dirs$data, 'GTIT-pedigree-for-asreml.csv'), na.strings=c("", "NA"))
+ped_data <- read.csv(file.path(dirs$data_output, 'GTIT-pedigree-for-asreml.csv'), na.strings=c("", "NA"))
 nrow(ped_data) #15745
 
-ped_data <- ped_gtit_final
 #get inverse of matrix
 ped_data_inv <- asreml::ainverse(ped_data)
 
@@ -174,27 +230,27 @@ breed_data$Mother3 <- breed_data$Mother
 
 
 
-```{r}
+```{r Run Models}
 
 # LAYING DATE  ------------------------------------------------------------
 
 #model basic 
-LD_basic_test2 <- asreml::asreml(fixed = April.lay.date ~ 1 + Fbreeding_age_group,
+LD_basic <- asreml(fixed = April.lay.date ~ 1 + Fbreeding_age_group,
                   random = ~vm(Mother, ped_data_inv) + 
                             ide(Mother, ped_data_inv) +
                             breeding_year,
                   data = breed_data)
-saveRDS(LD_basic, file = file.path(dirs$output,'LD_basic.rds'))
+saveRDS(LD_basic, file = file.path(dirs$model_output,'LD_basic_MIC.rds'))
 
 
 #model with NB
-LD_NB_2 <- asreml::asreml(fixed = April.lay.date ~ 1 + Fbreeding_age_group,
+LD_NB <- asreml::asreml(fixed = April.lay.date ~ 1 + Fbreeding_age_group,
                 random = ~vm(Mother, ped_data_inv) + 
                   ide(Mother, ped_data_inv) +
                   breeding_year + 
                   nest.box,
                 data = breed_data)
-saveRDS(LD_NB, file = file.path(dirs$output,'LD_NB.rds'))
+saveRDS(LD_NB, file = file.path(dirs$model_output,'LD_NB_MIC.rds'))
 
 
 #without distance matrix
@@ -205,7 +261,7 @@ LD_spat <- asreml::asreml(fixed = April.lay.date ~ 1 + Fbreeding_age_group,
                          breeding_year,
                        data = breed_data,
                   workspace = 300e6, pworkspace=300e6)
-saveRDS(LD_spat, file = file.path(dirs$output,'LD_spat.rds'))
+saveRDS(LD_spat, file = file.path(dirs$model_output,'LD_spat_MIC.rds'))
 
 
 
@@ -216,21 +272,8 @@ LD_envir <- asreml::asreml(fixed = April.lay.date ~ 1 + Fbreeding_age_group,
                           vm(Mother2, env_matrix) +
                           breeding_year,
                         data = breed_data,
-                  workspace = 300e6, pworkspace=300e6,
-                  maxiter = 50)
-saveRDS(LD_envir, file = file.path(dirs$output,'LD_envir.rds'))
-
-
-
-# #wiht both matrices - Fbreeding_age_group
-# LD_dist_env <- asreml::asreml(fixed = April.lay.date ~ 1 + Fbreeding_age_group,
-#                        random = ~vm(Mother, ped_data_inv) + ide(Mother, ped_data_inv) +
-#                         vm(Mother3, env_matrix) +
-#                          vm(Mother2, spatial_matrix) + 
-#                          breeding_year,
-#                         data = breed_data)
-# saveRDS(LD_dist_env, file = './output/LD_dist_env.rds')
-
+                  workspace = 300e6, pworkspace=300e6)
+saveRDS(LD_envir, file = file.path(dirs$model_output,'LD_envir_MIC.rds'))
 
 
 
@@ -243,7 +286,7 @@ HD_basic <- asreml::asreml(fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
                             ide(Mother, ped_data_inv) +
                             breeding_year,
                   data = breed_data)
-saveRDS(HD_basic, file = file.path(dirs$output,'HD_basic.rds'))
+saveRDS(HD_basic, file = file.path(dirs$model_output,'HD_basic_MIC.rds'))
 
 
 #model with NB
@@ -253,11 +296,11 @@ HD_NB <- asreml::asreml(fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
                   breeding_year + 
                   nest.box,
                 data = breed_data)
-saveRDS(HD_NB, file = file.path(dirs$output,'HD_NB.rds'))
+saveRDS(HD_NB, file = file.path(dirs$model_output,'HD_NB_MIC.rds'))
 
 
 #without distance matrix
-HD_dist <- asreml::asreml(fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
+HD_spat <- asreml::asreml(fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
                        random = ~vm(Mother, ped_data_inv) + 
                          ide(Mother, ped_data_inv) +
                          vm(Mother2, spatial_matrix) +
@@ -265,7 +308,8 @@ HD_dist <- asreml::asreml(fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
                        data = breed_data,
                   workspace = 300e6, pworkspace=300e6,
                   maxiter = 50)
-saveRDS(HD_dist, file = file.path(dirs$output,'HD_dist.rds'))
+saveRDS(HD_spat, file = file.path(dirs$model_output,'HD_dist_MIC.rds'))
+
 
 
 #model with envir sim matrix
@@ -274,57 +318,16 @@ HD_envir <- asreml::asreml(fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
                           ide(Mother, ped_data_inv) +
                           vm(Mother2, env_matrix) +
                           breeding_year,
-                        data = breed_datac)
-saveRDS(HD_envir, file = file.path(dirs$output,'HD_envir.rds'))
+                        data = breed_data,
+                  workspace = 300e6, pworkspace=300e6,
+                  maxiter = 50)
+saveRDS(HD_envir, file = file.path(dirs$model_output,'HD_envir_MIC.rds'))
 
-
-
-```
-
-
-
-RUN MODELS WITH BRMS 
-
-
-```{r}
-
-prepped <- nadiv::prepPed(ped_data_sub)
-Amat <- as.matrix(nadiv::makeA(prepped))
-
-#model basic 
-LD_test <- brms::brm(April.lay.date ~ 1 + Fbreeding_age_group + 
-                        (1 | Mother2) + 
-                        (1 | gr(Mother, cov = Amat)) +
-                        (1 | breeding_year),
-                      data = breed_data, 
-                     data2 = list(Amat = Amat),
-                      family = gaussian(),
-                     backend = "cmdstanr",
-                     iter = 800, warmup = 50, chains = 4,
-                     cores = parallel::detectCores() - 1)
-
-plot(LD_test)
-summary(LD_test)
-brms::mcmc_plot(LD_test, type = "pairs")
-summary(LD_test)$random
-
-LD_test <- brms::add_criterion(LD_test, "waic")
-LD_test2 <- brms::add_criterion(LD_test2, "waic")
-
-brms::loo_compare(LD_test, LD_test2, criterion = "waic")
-
-
-v_animal <- (brms::VarCorr(LD_test, summary = FALSE)$Mother$sd)^2
-v_r <- (brms::VarCorr(LD_test, summary = FALSE)$residual__$sd)^2
-h.bwt <- brms::as.mcmc(v_animal / (v_animal + v_r))
-summary(h.bwt)
-plot(h.bwt)
-
-
-summary(LD_basic)$varcomp
-LD_basic.h2
 
 
 
 
 ```
+
+
+
