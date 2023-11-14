@@ -36,14 +36,26 @@ choose_data <- function(data, years){
 
 get_var_comps <- function(model){
   
-  if(substitute(model) == substitute(LD_basic)){var_comp_names = c('Vby', 'Va', 'Vpe', 'Vr')
-                                                mod_name = substitute(LD_basic)}
-  if(substitute(model) == substitute(LD_NB)){var_comp_names = c('Vby', 'Vnb', 'Va', 'Vpe', 'Vr')
-                                                mod_name = substitute(LD_NB)}
-  if(substitute(model) == substitute(LD_spat)){var_comp_names = c('Vby', 'Vspat', 'Va', 'Vpe', 'Vr')
-                                                mod_name = substitute(LD_spat)}
-  if(substitute(model) == substitute(LD_envir)){var_comp_names = c('Vby', 'Venv', 'Va', 'Vpe', 'Vr')
-                                                mod_name = substitute(LD_envir)}
+  if(substitute(model) == substitute(LD_basic) | substitute(model) ==  substitute(HD_basic))
+  {
+    var_comp_names = c('Vby', 'Va', 'Vpe', 'Vr') 
+    mod_name = substitute(model)
+    }
+  if(substitute(model) == substitute(LD_NB) | substitute(model) ==  substitute(HD_NB))
+    {
+    var_comp_names = c('Vby', 'Vnb', 'Va', 'Vpe', 'Vr') 
+    mod_name = substitute(model)
+    }
+  if(substitute(model) == substitute(LD_spat) | substitute(model) ==  substitute(HD_spat))
+    {
+    var_comp_names = c('Vby', 'Vspat', 'Va', 'Vpe', 'Vr')
+    mod_name = substitute(model)
+    }
+  if(substitute(model) == substitute(LD_envir) | substitute(model) ==  substitute(HD_envir))
+    {
+    var_comp_names = c('Vby', 'Venv', 'Va', 'Vpe', 'Vr')
+    mod_name = substitute(model)
+    }
   
   data <- summary(model)$varcomp %>%
     #give name to column with component names
@@ -73,6 +85,13 @@ get_var_comps <- function(model){
 #' @return small tibble with Vp, VP within year, h2, h2 within year
 #' 
 
+
+######GETS WRONG SE!! FIX THIS
+
+
+
+
+
 get_herit <- function(data, model){
   
   herits <- tibble::tibble(name = c('Vp', 'Vp_yr', 'h2', 'h2_yr'),
@@ -95,12 +114,11 @@ get_herit <- function(data, model){
                      sum(subset(data, model_name == model)$SE, na.rm = T),
                    #within year h2
                    subset(data, model_name == model & name == 'Va')$SE / 
-                     sum(subset(data, model_name == model & name != 'Vby')$SE)))
+                     sum(subset(data, model_name == model)$SE)))
   
   return(herits)
   
 }
-
 
 
 #' get repeatability value for environmental variables of Mothers
