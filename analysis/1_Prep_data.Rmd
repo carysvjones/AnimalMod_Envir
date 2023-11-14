@@ -323,12 +323,15 @@ gtit_data_sub_nb <- gtit_data_sub_nb %>%
   dplyr::group_by(Mother) %>%
   dplyr::mutate(x_mean = mean(x),
                 y_mean = mean(y),
-                alt_mean = mean(altitude.m.),
-                northness_mean = mean(northness),
-                edge_mean = mean(edge.EDI.),
-                No_trees_75m_mean = mean(No_trees_75m),
-                area_polygon_sqrt_mean = mean(area_polygon_sqrt)) %>%
+                alt_mean = mean(altitude.m., na.rm = T),
+                northness_mean = mean(northness, na.rm = T),
+                edge_mean = mean(edge.EDI., na.rm = T),
+                No_trees_75m_mean = mean(No_trees_75m, na.rm = T),
+                area_polygon_sqrt_mean = mean(area_polygon_sqrt, na.rm = T)) %>%
   dplyr::ungroup()
+
+
+
 
 #output data
 write.csv(gtit_data_sub_nb, file = file.path(dirs$data_output,'GTIT_data_anim_mod.csv'), row.names = F)
