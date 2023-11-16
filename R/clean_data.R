@@ -313,8 +313,6 @@ get_age <- function(data, ringing_data){
                       age == '5' ~ as.integer((yr-1)),
                       age == '6' ~ as.integer((yr-2)))) %>%
     dplyr::group_by(bto_ring) %>%
-    #get earliest DOB for each if have more than 1 
-    tidyr::replace_na(list(Fem_DOB = Inf)) %>%  # replace missing values with Inf
     dplyr::slice_min(n = 1, order_by = Fem_DOB) %>%  # select the row with the smallest Fem_Age
     #keep only 1 row per individual 
     dplyr::slice_head() %>%
@@ -331,7 +329,6 @@ get_age <- function(data, ringing_data){
   #check and sort for any that are definitely wrong - less than 1 or more than 10, Inf (stand in for unknown) or NA
   false_ageFem <- subset(merged, Fem_breed_age < 1 | 
                            Fem_breed_age > 10 | 
-                           Fem_breed_age == -Inf |
                            is.na(Fem_breed_age))$Mother
   
   #various reasons why missing - some mistakes in data 
