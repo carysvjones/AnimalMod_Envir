@@ -89,9 +89,6 @@ get_var_comps <- function(model){
 ######GETS WRONG SE!! FIX THIS
 
 
-
-
-
 get_herit <- function(data, model){
   
   herits <- tibble::tibble(name = c('Vp', 'Vp_yr', 'h2', 'h2_yr'),
@@ -146,11 +143,39 @@ rep_val <- function(response, data, nboot = 1000, npermut = 0){
 
 
 
-#' Get heritabiltiy output from models - and Vp 
+#' Get bounding box for calculating territory polygons 
 #' 
-#' @param model which model
-#' @return table, with Vp, over years and between years, and heritabiltiy between and within 
+#' @param data breeding data with spatial object
+#' @return theissen polygons..
+
+bbox_polygon_G <- function(x) {
+  bb <- sf::st_bbox(x)
+  
+  p <- matrix(
+    c(bb["xmin"], bb["ymin"], 
+      bb["xmin"], bb["ymax"],
+      bb["xmax"], bb["ymax"], 
+      bb["xmax"], bb["ymin"], 
+      bb["xmin"], bb["ymin"]),
+    ncol = 2, byrow = T
+  )
+  
+  sf::st_polygon(list(p))
+}
 
 
 
+#' Get territory polygons
+#' 
+#' @param 
+#' @return 
 
+
+
+#get voronoi polygons
+territories_G <- sf::st_voronoi(sf::st_union(breeding.data.G.SUB), box)
+territories_G <- sf::st_intersection(sf::st_cast(territories_G), sf::st_union(wood.outline))
+
+#joining the territory polygons back up with the individuals that bred in them
+territories_G <- sf::st_sf(geom = territories_G)
+territories_G <- sf::st_join(territories_G, breeding.data.G.SUB)
