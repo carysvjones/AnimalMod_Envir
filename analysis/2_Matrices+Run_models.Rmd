@@ -109,7 +109,7 @@ ggplot(gtit_data_sub_nb, aes(x = April.lay.date, y = April.hatch.date)) +
 
 
 
-# ENVIRONMENT SIM MATRIX  -------------------------------------------------
+ENVIRONMENT SIM MATRIX  -------------------------------------------------
 
 ```{r Envir Matrix}
 
@@ -147,7 +147,7 @@ env_matrix <- readRDS(file.path(dirs$data_output, 'env_matrix.rds'))
 ```
 
 
-# SPATIAL MATRIX ---------------------------------------------------------
+SPATIAL MATRIX ---------------------------------------------------------
 
 ```{r Spatial Matrix}
 
@@ -197,14 +197,12 @@ mantel_matrices <- vegan::mantel(env_matrix, spatial_matrix, method = "spearman"
 mant()
 
 
-
 ```
 
 
 
 
-
-# RUN MODELS ---------------------------------------------------------
+RUN MODELS ---------------------------------------------------------
 
 
 
