@@ -172,10 +172,10 @@ bbox_polygon_G <- function(x) {
 
 
 
-#get voronoi polygons
-territories_G <- sf::st_voronoi(sf::st_union(breeding.data.G.SUB), box)
-territories_G <- sf::st_intersection(sf::st_cast(territories_G), sf::st_union(wood.outline))
-
-#joining the territory polygons back up with the individuals that bred in them
-territories_G <- sf::st_sf(geom = territories_G)
-territories_G <- sf::st_join(territories_G, breeding.data.G.SUB)
+# #get voronoi polygons
+# territories_G <- sf::st_voronoi(sf::st_union(breeding.data.G.SUB), box)
+# territories_G <- sf::st_intersection(sf::st_cast(territories_G), sf::st_union(wood.outline))
+# 
+# #joining the territory polygons back up with the individuals that bred in them
+# territories_G <- sf::st_sf(geom = territories_G)
+# territories_G <- sf::st_join(territories_G, breeding.data.G.SUB)
