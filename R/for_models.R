@@ -145,11 +145,11 @@ rep_val <- function(response, data, nboot = 1000, npermut = 0){
 
 #' Get bounding box for calculating territory polygons 
 #' 
-#' @param data breeding data with spatial object
-#' @return theissen polygons..
+#' @param breeding_data breeding data with spatial object
+#' @return box
 
-bbox_polygon_G <- function(x) {
-  bb <- sf::st_bbox(x)
+bbox_polygon_G <- function(breeding_data) {
+  bb <- sf::st_bbox(breeding_data)
   
   p <- matrix(
     c(bb["xmin"], bb["ymin"], 
@@ -167,15 +167,30 @@ bbox_polygon_G <- function(x) {
 
 #' Get territory polygons
 #' 
-#' @param 
-#' @return 
+#' @param breeding_data
+#' @param wood_outline 
+#' @param yr year of data
+#' @return dataset with areas for each box occupied within that year 
+
+get_territory_polygons <- function(breeding_data, wood_outline, yr) {
+  
+  breeding_data_areas <- breeding_data %>%
+    dplyr::filter(year == yr) %>%
+    #get voronoi polygons
+    sf::st_union() %>%
+    sf::st_voronoi(box) %>%
+    sf::st_cast() %>%
+    sf::st_intersection(sf::st_union(wood_outline)) %>%
+    #joining the territory polygons back up with the individuals that bred in them
+    sf::st_sf() %>%
+    sf::st_join(dplyr::filter(breeding_data, year == yr)) %>%
+    #get area in new column 
+    dplyr::mutate(area_polygon = sf::st_area(geometry)) %>%
+    #get rid of geometry 
+    sf::st_drop_geometry()
+  
+  return(breeding_data_areas)
+  
+}
 
 
-
-# #get voronoi polygons
-# territories_G <- sf::st_voronoi(sf::st_union(breeding.data.G.SUB), box)
-# territories_G <- sf::st_intersection(sf::st_cast(territories_G), sf::st_union(wood.outline))
-# 
-# #joining the territory polygons back up with the individuals that bred in them
-# territories_G <- sf::st_sf(geom = territories_G)
-# territories_G <- sf::st_join(territories_G, breeding.data.G.SUB)
