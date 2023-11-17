@@ -54,6 +54,15 @@ output_plot_theme <- theme(
     ) 
 
 
+
+
+# psetts <- list(
+#     text.colour = "#f2f2f2",
+#     background.colour = "#262626", # "transparent"
+#     text.size = 10
+# )
+
+
 ```
 
 
@@ -265,7 +274,7 @@ HD_all_merge <- HD_all %>%
 
 FIGURES
 
-```{r Lay date firgures}
+```{r Lay date figures}
 
 #Name var comps in order 
 LD_varcomps$name_plot <- factor(LD_varcomps$name, levels=c('Vr', 'Vby', 'Vnb', 'Vspat', 'Venv', 'Vpe', 'Va'))
@@ -536,10 +545,8 @@ plots <- (LD_var_comp | HD_var_comp) / LD_herit_plot / HD_herit_plot
 ```
 
 
-
-
 PLot of environment factor
-```{r}
+```{r }
 
 LD_varcomps_mat <- LD_varcomps %>%
   filter(name %in% c('Vnb', 'Vspat', 'Venv')) %>%
