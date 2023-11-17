@@ -7,10 +7,6 @@ date: '2023-01-26'
 # Dependencies
 ```{r}
 
-install.packages("groundhog")
-library("groundhog")
-pkgs <- c("rio","metafor")
-groundhog.library(pkgs, "2021-09-01")
 
 box::use(.. / R / dirs[dirs])
 box::use(clean = ../ R / clean_data)
@@ -23,7 +19,7 @@ box::use(moments)
 box::use(kinship2)
 box::use(sf)
 box::use(tidyr)
-box::use(pedantics)
+box::use(nadiv)
 box::use(magrittr[`%>%`])
 
 ```
@@ -109,12 +105,11 @@ head(ped_gtit_short)
 nrow(ped_gtit_short) #94006
 
 #fix the pedigree - adds any missing individuals to id column and orders it correctly
-ped_gtit_short_ext_fix <- pedantics::fixPedigree(ped_gtit_short)
-ped_gtit_short_ext_fix <- MasterBayes::orderPed(ped_gtit_short_ext_fix)
+ped_gtit_short_ext_fix <- nadiv::prepPed(ped_gtit_short)
 
 #this is the overall huge pedigree!
-head(ped_gtit_short_ext_fix) #98519
-nrow(ped_gtit_short_ext_fix) #99239
+head(ped_gtit_short_ext_fix) 
+nrow(ped_gtit_short_ext_fix) #99239. #98519
 
 #so can save this here...
 write.csv(ped_gtit_short_ext_fix, file = file.path(dirs$data_output,'GTIT-pedigree-full-fixed.csv'), row.names = F)
@@ -136,6 +131,9 @@ nrow(ped_gtit_final) #15745
 
 ped_gtit_final <- pedantics::fixPedigree(ped_gtit_final)
 ped_gtit_final <- MasterBayes::orderPed(ped_gtit_final)
+
+ped_gtit_final <-  nadiv::prepPed(ped_gtit_final)
+
 
 #get pedigree stats - this take a long time to run 
 # pedigree_stats <- pedantics::pedigreeStats(ped_gtit_short_ext_fix, retain = 'informative')
