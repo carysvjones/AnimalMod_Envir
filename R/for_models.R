@@ -34,51 +34,38 @@ choose_data <- function(data, years){
 #' @param model which model type do want variance components returned for 
 #' @return table, with var comp est and SE, as well as relative effect and SE
 
-get_var_comps <- function(model){
+get_var_comps <- function(model) {
+  mod_name <- deparse(substitute(model))
   
-  if(substitute(model) == substitute(LD_basic) | substitute(model) ==  substitute(HD_basic))
-  {
-    var_comp_names = c('Vby', 'Va', 'Vpe', 'Vr') 
-    mod_name = substitute(model)
-    }
-  if(substitute(model) == substitute(LD_NB) | substitute(model) ==  substitute(HD_NB))
-    {
-    var_comp_names = c('Vby', 'Vnb', 'Va', 'Vpe', 'Vr') 
-    mod_name = substitute(model)
-    }
-  if(substitute(model) == substitute(LD_spat) | substitute(model) ==  substitute(HD_spat))
-    {
-    var_comp_names = c('Vby', 'Vspat', 'Va', 'Vpe', 'Vr')
-    mod_name = substitute(model)
-    }
-  if(substitute(model) == substitute(LD_envir) | substitute(model) ==  substitute(HD_envir))
-    {
-    var_comp_names = c('Vby', 'Venv', 'Va', 'Vpe', 'Vr')
-    mod_name = substitute(model)
-    }
+  var_comp_names <- switch(
+    mod_name,
+    LD_basic = c('Vby', 'Va', 'Vpe', 'Vr'),
+    HD_basic = c('Vby', 'Va', 'Vpe', 'Vr'),
+    LD_NB = c('Vby', 'Vnb', 'Va', 'Vpe', 'Vr'),
+    HD_NB = c('Vby', 'Vnb', 'Va', 'Vpe', 'Vr'),
+    LD_spat = c('Vby', 'Vspat', 'Va', 'Vpe', 'Vr'),
+    HD_spat = c('Vby', 'Vspat', 'Va', 'Vpe', 'Vr'),
+    LD_envir = c('Vby', 'Venv', 'Va', 'Vpe', 'Vr'),
+    HD_envir = c('Vby', 'Venv', 'Va', 'Vpe', 'Vr'),
+    stop("Invalid model specified.")
+  )
   
   data <- summary(model)$varcomp %>%
-    #give name to column with component names
-    tibble::rownames_to_column(., var = "name") %>%
-    #replace them 
+    tibble::rownames_to_column(var = "name") %>%
     base::replace(., 'name', var_comp_names) %>%
-    #rename columns component and std.error
     dplyr::rename('Est' = 'component', 'SE' = 'std.error') %>%
-    #make columns with rel estimate and st err
     dplyr::mutate(Rel_Est = Est / sum(Est), 
                   Rel_SE = (SE / Est) * Rel_Est) %>%
-    #remove zratio and bound and %ch 
     dplyr::select(-c('z.ratio', 'bound', '%ch')) %>%
-    #add column for name of model
-    dplyr::mutate(model_name = paste(mod_name))
+    dplyr::mutate(model_name = as.character(mod_name))
   
   return(data)
-  
 }
 
 
 
-#' get heritability and phenotypic variance estimates
+
+ #' get heritability and phenotypic variance estimates
 #' 
 #' @param data as output from get_var_comps function.
 #' @param model which model to get estimates for.
@@ -88,58 +75,76 @@ get_var_comps <- function(model){
 
 ######GETS WRONG SE!! FIX THIS
 
+# get_herit <- function(data, model){
+#   
+#   herits <- tibble::tibble(name = c('Vp', 'Vp_yr', 'h2', 'h2_yr'),
+#                  Est = c(#Vp - total phenotypic var
+#                    sum(subset(data, model_name == model)$Est, na.rm = T ),
+#                    #Vp_yr, within year phenotypic var
+#                    sum(subset(data, model_name == model & name != 'Vby')$Est,
+#                        na.rm = T),
+#                    #h2 - across years
+#                    subset(data, model_name == model & name == 'Va')$Est / 
+#                      sum(subset(data, model_name == model)$Est, na.rm = T),
+#                    #within year h2
+#                    subset(data, model_name == model & name == 'Va')$Est / 
+#                      sum(subset(data, model_name == model & name != 'Vby')$Est,
+#                          na.rm = T)),
+#                  SE = c(#get SE for these - first Vp
+#                    NA, NA,
+#                    #h2 - across years
+#                    subset(data, model_name == model & name == 'Va')$SE / 
+#                      sum(subset(data, model_name == model)$SE, na.rm = T),
+#                    #within year h2
+#                    subset(data, model_name == model & name == 'Va')$SE / 
+#                      sum(subset(data, model_name == model)$SE)))
+#   
+#   return(herits)
+#   
+# }
 
-get_herit <- function(data, model){
+
+#' get heritability and phenotypic variance estimates - CORRECT HERIT USING ASREML
+#' 
+#' @param data as output from get_var_comps function.
+#' @param model which model to get estimates for in "".
+#' @return small tibble with Vp, VP within year, h2, h2 within year
+#' 
+
+
+get_herit_asreml <- function(data, model) {
   
-  herits <- tibble::tibble(name = c('Vp', 'Vp_yr', 'h2', 'h2_yr'),
-                 Est = c(#Vp - total phenotypic var
-                   sum(subset(data, model_name == model)$Est, na.rm = T ),
-                   #Vp_yr, within year phenotypic var
-                   sum(subset(data, model_name == model & name != 'Vby')$Est,
-                       na.rm = T),
-                   #h2 - across years
-                   subset(data, model_name == model & name == 'Va')$Est / 
-                     sum(subset(data, model_name == model)$Est, na.rm = T),
-                   #within year h2
-                   subset(data, model_name == model & name == 'Va')$Est / 
-                     sum(subset(data, model_name == model & name != 'Vby')$Est,
-                         na.rm = T)),
-                 SE = c(#get SE for these - first Vp
-                   NA, NA,
-                   #h2 - across years
-                   subset(data, model_name == model & name == 'Va')$SE / 
-                     sum(subset(data, model_name == model)$SE, na.rm = T),
-                   #within year h2
-                   subset(data, model_name == model & name == 'Va')$SE / 
-                     sum(subset(data, model_name == model)$SE)))
+  filter_by_model <- subset(LD_varcomps, model_name == substitute(LD_basic))
+  
+  # Calculate total phenotypic variance (Vp)
+  Vp <- sum(filter_by_model$Est, na.rm = TRUE)
+  # Calculate within-year phenotypic variance (Vp_yr)
+  Vp_yr <- sum(filter_by_model$name != 'Vby', na.rm = TRUE)
+  # Calculate heritability across years (h2)
+  h2 <- subset(filter_by_model, name == 'Va')[, 2] / Vp
+  # Calculate heritability within year (h2_yr)
+  h2_yr <- subset(filter_by_model, name == 'Va')[, 2] / Vp_yr
+  # Calculate standard errors
+  SE_h2 <- if (nrow(filter_by_model) == 4) {
+    asreml::vpredict(model, h2 ~ V2 / (V1 + V2 + V3 + V4))[, 2]
+  } else {
+    asreml::vpredict(model, h2 ~ V3 / (V1 + V2 + V3 + V4 + V5))[, 2]
+  }
+  SE_h2_yr <- if (nrow(filter_by_model) == 4) {
+    asreml::vpredict(model, h2_wyr ~ V2 / (V2 + V3 + V4))[, 2]
+  } else {
+    asreml::vpredict(model, h2_wyr ~ V3 / (V2 + V3 + V4 + V5))[, 2]
+  }
+  
+  # Create a tibble with results
+  herits <- tibble::tibble(
+    name = c('Vp', 'Vp_yr', 'h2', 'h2_yr'),
+    Est = c(Vp, Vp_yr, h2, h2_yr),
+    SE = c(NA, NA, SE_h2, SE_h2_yr)
+  )
   
   return(herits)
-  
 }
-
-
-#' get repeatability value for environmental variables of Mothers
-#' 
-#' @param data dataset to use.
-#' @param response response factor.
-#' @param nboot number of bootstraps, automatic = 1000.
-#' @param npermut numebr permutations, automatic = 0.
-#' @return model output from rpt function.
-
-rep_val <- function(response, data, nboot = 1000, npermut = 0){
-  
-  # mod_output <- lm(data = dat, as.formula(paste(response, '~ breeding_year')))
-  mod_output <- rptR::rpt(stats::as.formula(paste(response, '~ (1 | Mother)')), 
-                          grname = "Mother", 
-                          data = data, 
-                          datatype = "Gaussian", 
-                          nboot = nboot, 
-                          npermut = npermut)
-  
-  return(mod_output) 
-}
-
-
 
 
 
@@ -179,19 +184,17 @@ get_territory_polygons <- function(breeding_data, wood_outline, yr) {
   
   #find areas
   breeding_data_areas <- breeding_data %>%
-    dplyr::filter(year == yr) %>%
-    #get voronoi polygons
+    dplyr::filter(if_any(any_of(c("year", "breeding_year")), ~. == yr)) %>%
+      #get voronoi polygons
     sf::st_union() %>%
     sf::st_voronoi(box) %>%
     sf::st_cast() %>%
     sf::st_intersection(sf::st_union(wood_outline)) %>%
     #joining the territory polygons back up with the individuals that bred in them
     sf::st_sf() %>%
-    sf::st_join(dplyr::filter(breeding_data, year == yr)) %>%
+    sf::st_join(dplyr::filter(breeding_data, if_any(any_of(c("year", "breeding_year")), ~. == yr))) %>%
     #get area in new column 
-    dplyr::mutate(area_polygon = sf::st_area(geometry)) %>%
-    #get rid of geometry 
-    sf::st_drop_geometry()
+    dplyr::mutate(area_polygon = sf::st_area(geometry)) 
   
   return(breeding_data_areas)
   
