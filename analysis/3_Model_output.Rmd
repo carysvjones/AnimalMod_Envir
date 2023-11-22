@@ -20,9 +20,8 @@ box::use(moments)
 box::use(kinship2)
 box::use(sf)
 box::use(tidyr)
-box::use(pedantics)
 box::use(magrittr[`%>%`])
-box::use(asreml)
+box::use(nadiv)
 box::use(tibble)
 box::use(ggdist[...])
 box::use(patchwork[...])
@@ -53,8 +52,9 @@ output_plot_theme <- theme(
                                hjust = 0)
     ) 
 
-
-
+#asreml requires a licence and install 
+# library(asreml)
+# install.packages("/Users/user/Downloads/asreml_4.2.0.276.tgz", repos = NULL, type = "source")
 
 # psetts <- list(
 #     text.colour = "#f2f2f2",
@@ -92,10 +92,6 @@ asreml::wald.asreml(LD_basic, ssType = "conditional", denDF = "numeric")
 
 #basic model outputs 
 summary(LD_basic)$varcomp
-
-summary(LD_basic_resid)$varcomp
-plot(LD_basic_resid)
-
 summary(LD_NB)$varcomp
 summary(LD_spat)$varcomp
 summary(LD_envir)$varcomp
@@ -105,38 +101,7 @@ summary(HD_NB)$varcomp
 summary(HD_spat)$varcomp
 summary(HD_envir)$varcomp
 
-summary(LD_basic)$varcomp
-heritability_se <- sqrt(diag(summary(LD_basic)$varcomp[,1]))
 
-
-plot(HD_envir$linear.predictors)
-
-a <- x / (x + y)
-
-
-sqrt(78.98286^2 / ((2.426195 + 78.98286) ^ 2 * (7860-1)))
-
-a_se <- sqrt((y^2 / ((x + y)^2 * (n - 1))))
-
-
-nrow(breed_data)
-
-sqrt(0.0802938*(1-0.0802938)/7680)
-
-
-
-
-
-6.566288 / (49.082157 + 6.566288 + 6.560010 + 19.569813)
-#take SE over total ?
-0.8486111 / (49.082157 + 6.566288 + 6.560010 + 19.569813)
-
-6.566288 / (6.566288 + 6.560010 + 19.569813)
-0.8486111 / (6.566288 + 6.560010 + 19.569813)
-
-heritability_se <- sqrt((19.569813^2 / (81.77827^2 * (7680 - 1))))
-
-sqrt((y^2 / ((x + y)^2 * (n - 1))))
 
 ```
 
@@ -152,12 +117,13 @@ LAYING DATE OUTPUT AND PLOTS
 list_components <- c('Vby', 'Va', 'Vpe', 'Vnb', 'Vspat', 'Venv', 'Vr', 'Vp', 'Vp_yr', 'h2', 'h2_yr')
 
 #variance componenets
-LD_varcomps <- rbind(get_var_comps(model = LD_basic), 
-                     get_var_comps(model = LD_NB), 
-                     get_var_comps(model = LD_spat), 
-                     get_var_comps(model = LD_envir))
+LD_varcomps <- rbind(mod$get_var_comps(model = LD_basic), 
+                     mod$get_var_comps(model = LD_NB), 
+                     mod$get_var_comps(model = LD_spat), 
+                     mod$get_var_comps(model = LD_envir))
   
 LD_varcomps
+
 
 #how do they change between models
 #get table with rel estimate for each model for var comp
@@ -176,16 +142,31 @@ LD_varcomps_changes <- LD_varcomps %>%
 
 #heritability
 #make new little table - Vp, Vp_year, h2, h2_year
-LD_herits <- rbind(get_herit(LD_varcomps, 'LD_basic'),
-                   get_herit(LD_varcomps, 'LD_NB'),
-                   get_herit(LD_varcomps, 'LD_spat'),
-                   get_herit(LD_varcomps, 'LD_envir')) %>%
+
+get_herit_asreml(LD_varcomps, LD_NB)
+
+
+LD_herits <- rbind(get_herit_asreml(LD_varcomps, LD_basic),
+                   get_herit_asreml(LD_varcomps, LD_NB),
+                   get_herit_asreml(LD_varcomps, LD_spat),
+                   get_herit_asreml(LD_varcomps, LD_envir)) %>%
   dplyr::mutate(Rel_Est = NA,
                 Rel_SE = NA,
                 model_name = c(rep('LD_basic', 4),
                                rep('LD_NB', 4),
                                rep('LD_spat', 4),
                                rep('LD_envir', 4)))
+
+sommer::vpredict(LD_basic, LD_basic.h2 ~ V2 / (V2 + V3 + V4))
+nadiv:::pin(LD_basic, LD_basic.h2 ~ V2 / (V2 + V3 + V4))
+
+LD_basic.h2 <- asreml::vpredict(LD_basic, LD_basic.h2 ~ V2 / (V2 + V3 + V4))
+LD_NB.h2 <- asreml::vpredict(LD_NB, LD_NB.h2 ~ V3 / (V2 + V3 + V4 + V5))
+LD_dist.h2 <- asreml::vpredict(LD_spat, LD_dist.h2 ~ V3 / (V2 + V3 + V4 + V5))
+LD_envir.h2 <- asreml::vpredict(LD_envir, LD_envir.h2 ~ V3 / (V2 + V3 + V4 + V5))
+
+
+install.packages("nadiv", repos="http://R-Forge.R-project.org")
 
 
 head(LD_varcomps)
@@ -212,10 +193,10 @@ LD_all_merge <- LD_all %>%
 ```{r Hatch Date Output}
 
 #variance componenets
-HD_varcomps <- rbind(get_var_comps(model = HD_basic), 
-                     get_var_comps(model = HD_NB), 
-                     get_var_comps(model = HD_spat), 
-                     get_var_comps(model = HD_envir))
+HD_varcomps <- rbind(mod$get_var_comps(model = HD_basic), 
+                     mod$get_var_comps(model = HD_NB), 
+                     mod$get_var_comps(model = HD_spat), 
+                     mod$get_var_comps(model = HD_envir))
   
 HD_varcomps
 
@@ -601,7 +582,7 @@ env_var_plot
 
 Fixed effects
 
-```{r}
+```{r Fixed effects}
 
 
 #fixed effects
