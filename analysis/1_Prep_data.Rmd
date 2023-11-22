@@ -129,16 +129,10 @@ ped_gtit_final <- ped_gtit_short_ext_fix_LD %>%
   dplyr::select(id, dam, sire)
 nrow(ped_gtit_final) #15745
 
-ped_gtit_final <- pedantics::fixPedigree(ped_gtit_final)
-ped_gtit_final <- MasterBayes::orderPed(ped_gtit_final)
-
 ped_gtit_final <-  nadiv::prepPed(ped_gtit_final)
 
 
-#get pedigree stats - this take a long time to run 
-# pedigree_stats <- pedantics::pedigreeStats(ped_gtit_short_ext_fix, retain = 'informative')
-# nrow(pedigree_stats$analyzedPedigree) #14559
-# saveRDS(pedigree_stats, file = file.path(dirs$data_output,'GTIT-pedStatSummary-full_output.rds'), row.names = F)
+#get pedigree stats?
 
 write.csv(ped_gtit_final, file = file.path(dirs$data_output,'GTIT-pedigree-for-asreml.csv'), row.names = F)
 
@@ -234,7 +228,7 @@ gtit_data_sub_nb <- merge(breed_gtit_noNA_age_sub, habitat_data, by = 'Pnum')
 nrow(gtit_data_sub_nb) #11786 - only a few hundred missing from before 
 
 gtit_data_sub_nb <- gtit_data_sub_nb %>%
-  dplyr::mutate(area_polygon_sqrt = sqrt(area_polygon.G))
+  dplyr::mutate(area_polygon_sqrt = sqrt(area_polygon))
 
 
 # SPATIAL MATRIX ----------------------------------------------------------
