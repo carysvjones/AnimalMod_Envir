@@ -5,8 +5,8 @@ box::use(.. / R / dirs[dirs])
 box::use(clean = ../ R / clean_data)
 box::use(mods = ../ R / for_models)
 
-box::use(ggplot2)
-box::use(dplyr)
+box::use(ggplot2[...])
+box::use(dplyr[...])
 box::use(moments)
 box::use(sf)
 box::use(tidyr)
@@ -26,7 +26,6 @@ breed2021 <- read.csv(file.path(dirs$data_raw, 'ebmp_broods_2021.csv'), na.strin
   #add column with year
   dplyr::mutate(year = as.integer(2021))
 nrow(breed2021) #1209
-head(breed2021)
 
 #read in 2022 data 
 breed2022 <- read.csv(file.path(dirs$data_raw, 'ebmp_broods_2022.csv'), na.strings=c("", "NA")) %>%
@@ -77,7 +76,7 @@ ring <- read.csv(file.path(dirs$data_raw, 'legacy_ringing_records_GT&BT_up_to_20
   #clean with function - removes errors and cleans up dataframe
   clean$clean_ringing_data(.) %>%
   #keep only some columns
-  dplyr::select(Pnum, age, sex, bto_species_code, bto_ring, yr, nb, retrap)
+  select(Pnum, age, sex, bto_species_code, bto_ring, yr, nb, retrap)
 nrow(ring) #179010
 
 # Clean Ringing data 2013-2022  -------------------------------------
@@ -85,9 +84,9 @@ nrow(ring) #179010
 ring2_clean <- ring2 %>% 
   #clean with function - removes errors and cleans up dataframe
   clean$clean_ringing_data_2(.) %>%
-  dplyr::mutate(Pnum = paste0(Date, '1', Site)) %>%
+  mutate(Pnum = paste0(Date, '1', Site)) %>%
   #rename columns
-  dplyr::rename(bto_ring = Ring,
+  rename(bto_ring = Ring,
                 bto_species_code = Spec,
                 age = Age,
                 sex = Sex,
@@ -134,78 +133,37 @@ nrow(box_tree) #1019
   
 # get territory areas ----------------------------------------------
 
-#open wood outline file
-wood.outline <- sf::st_read(file.path(dirs$data_raw, '/maps/perimeter poly with clearings_region.shp'))
-
-#extracting the first polygon because that's the bit of the woods we care about
-#(and the polygons go a bit nuts if you don't)
-wood.outline <- wood.outline[1,]
-#need to transform wood outline
-wood.outline <- sf::st_transform(wood.outline, 27700)
+#open wood outline file - extract first polygon and transform
+wood_outline <- sf::st_read(file.path(dirs$data_raw, '/maps/perimeter poly with clearings_region.shp'))[1,] %>%
+  sf::st_transform(27700)
 
 #need breeding data with nest box locations 
 nrow(breed) #40255
 
-breeding.data <- breed %>%
-  dplyr::inner_join(., nestbox, by = c('nest.box' = 'Box'))
-nrow(breeding.data) #37620
-
-#get subset of just great tits
-breeding.data.G <- subset(breeding.data, Species == 'g' )
-
-#converting it into a spatial object
-breeding.data.G <- sf::st_as_sf(breeding.data.G, coords=c("x","y"), remove=F, crs=27700)
-
-#calculating a bounding box for the function that calculates the territory polygons
-#can use this for when include blue tits as well later
-bbox_polygon_G <- function(x) {
-  bb <- sf::st_bbox(x)
-  
-  p <- matrix(
-    c(bb["xmin"], bb["ymin"], 
-      bb["xmin"], bb["ymax"],
-      bb["xmax"], bb["ymax"], 
-      bb["xmax"], bb["ymin"], 
-      bb["xmin"], bb["ymin"]),
-    ncol = 2, byrow = T
-  )
-  
-  sf::st_polygon(list(p))
-}
-box <- sf::st_sfc(bbox_polygon_G(breeding.data.G))
-
+#sort breeding data 
+breeding_data <- breed %>%
+  dplyr::inner_join(., nestbox, by = c('nest.box' = 'Box')) %>%
+  dplyr::filter(Species == 'g') %>%
+  #convert to spatial object
+  sf::st_as_sf(coords=c("x","y"), remove=F, crs=27700)
+nrow(breeding_data) #17812
 
 #loop to get territory size for individuals within each year
 GTIT_allyrs_area <- NULL
-for (i in unique(breeding.data$year)){
-  #subset 1 year
-  breeding.data.G.SUB <- subset(breeding.data.G, year == i)
-  
-  #get voronoi polygons
-  territories_G <- sf::st_voronoi(sf::st_union(breeding.data.G.SUB), box)
-  territories_G <- sf::st_intersection(sf::st_cast(territories_G), sf::st_union(wood.outline))
-  
-  #joining the territory polygons back up with the individuals that bred in them
-  territories_G <- sf::st_sf(geom = territories_G)
-  territories_G <- sf::st_join(territories_G, breeding.data.G.SUB)
-  
-  #then run with st_area, it gives the area of each polygon???
-  areas_G <- sf::st_area(territories_G$geometry)
-  #can I then add the nest box number again?
-  territories_G$area_polygon.G <- areas_G
-  
-  #get rid of geometry
-  sf::st_geometry(territories_G) <- NULL
-  
+for (yr in unique(breeding_data$year)){
+  territories_G <- get_territory_polygons(breeding_data, wood_outline, yr)
   GTIT_allyrs_area <- rbind(GTIT_allyrs_area, territories_G)
 }
 
+summary(GTIT_allyrs_area$area_polygon)
 nrow(GTIT_allyrs_area) #17812
 
-GTIT_allyrs_area$area_polygon.G <- as.numeric(GTIT_allyrs_area$area_polygon.G)
-
+#select just some columns and drop geometyr
 territory <- GTIT_allyrs_area %>%
-  dplyr::select('Pnum', 'nest.box', 'area_polygon.G')
+  #get rid of geometry 
+  sf::st_drop_geometry() %>%
+  dplyr::mutate(area_polygon = as.numeric(area_polygon)) %>%
+  dplyr::select('Pnum', 'nest.box', 'area_polygon')
 
 #merge with other habitat data
 box_tree_terr <- merge(box_tree, territory, by.x = 'Box', by.y = 'nest.box', all.y = T)
