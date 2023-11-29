@@ -116,9 +116,9 @@ get_herit_asreml <- function(data, model, modelname) {
   filter_by_model <- subset(data, model_name == modelname)
   
   # Calculate total phenotypic variance (Vp)
-  Vp <- sum(filter_by_model$Est, na.rm = TRUE)
+  Vp <- sum(filter_by_model$Est)
   # Calculate within-year phenotypic variance (Vp_yr)
-  Vp_yr <- sum(filter_by_model$name != 'Vby', na.rm = TRUE)
+  Vp_yr <- sum(filter_by_model$Est[filter_by_model$name != 'Vby'])
   # Calculate heritability across years (h2)
   h2 <- subset(filter_by_model, name == 'Va')[, 2] / Vp
   # Calculate heritability within year (h2_yr)
@@ -127,7 +127,7 @@ get_herit_asreml <- function(data, model, modelname) {
   # Choose the appropriate formula based on the number of rows
   if (nrow(filter_by_model) == 4) {
     SE_h2 <- asreml::vpredict(model, h2 ~ V2 / (V1 + V2 + V3 + V4))[, 2]
-    SE_h2_yr <- asreml::vpredict(model, h2_wyr ~ V2 / (V1 + V2 + V3 + V4))[, 2]
+    SE_h2_yr <- asreml::vpredict(model, h2_wyr ~ V2 / (V2 + V3 + V4))[, 2]
   } else {
     SE_h2 <- asreml::vpredict(model, h2 ~ V3 / (V1 + V2 + V3 + V4 + V5))[, 2]
     SE_h2_yr <- asreml::vpredict(model, h2_wyr ~ V3 / (V2 + V3 + V4 + V5))[, 2]
