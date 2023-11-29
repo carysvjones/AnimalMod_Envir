@@ -9,7 +9,6 @@ box::use(dplyr)
 box::use(rptR)
 
 
-
 # FUNCTIONS ────────────────────────────────────────────────────────────────── #
 
 
@@ -17,6 +16,7 @@ box::use(rptR)
 #'
 #' @param data Wytham breeding data.
 #' @return dataset with certain/all years.
+
 
 choose_data <- function(data, years){
   ifelse(years == 'ALL', 
@@ -70,7 +70,6 @@ get_var_comps <- function(model) {
 #' @param data as output from get_var_comps function.
 #' @param model which model to get estimates for.
 #' @return small tibble with Vp, VP within year, h2, h2 within year
-#' 
 
 
 ######GETS WRONG SE!! FIX THIS
@@ -107,14 +106,14 @@ get_var_comps <- function(model) {
 #' get heritability and phenotypic variance estimates - CORRECT HERIT USING ASREML
 #' 
 #' @param data as output from get_var_comps function.
-#' @param model which model to get estimates for in "".
+#' @param model model to get estimates as asreml V4 output
 #' @return small tibble with Vp, VP within year, h2, h2 within year
 #' 
 
 
-get_herit_asreml <- function(data, model) {
+get_herit_asreml <- function(data, model, modelname) {
   
-  filter_by_model <- subset(LD_varcomps, model_name == substitute(LD_basic))
+  filter_by_model <- subset(data, model_name == modelname)
   
   # Calculate total phenotypic variance (Vp)
   Vp <- sum(filter_by_model$Est, na.rm = TRUE)
@@ -124,18 +123,16 @@ get_herit_asreml <- function(data, model) {
   h2 <- subset(filter_by_model, name == 'Va')[, 2] / Vp
   # Calculate heritability within year (h2_yr)
   h2_yr <- subset(filter_by_model, name == 'Va')[, 2] / Vp_yr
-  # Calculate standard errors
-  SE_h2 <- if (nrow(filter_by_model) == 4) {
-    asreml::vpredict(model, h2 ~ V2 / (V1 + V2 + V3 + V4))[, 2]
-  } else {
-    asreml::vpredict(model, h2 ~ V3 / (V1 + V2 + V3 + V4 + V5))[, 2]
-  }
-  SE_h2_yr <- if (nrow(filter_by_model) == 4) {
-    asreml::vpredict(model, h2_wyr ~ V2 / (V2 + V3 + V4))[, 2]
-  } else {
-    asreml::vpredict(model, h2_wyr ~ V3 / (V2 + V3 + V4 + V5))[, 2]
-  }
   
+  # Choose the appropriate formula based on the number of rows
+  if (nrow(filter_by_model) == 4) {
+    SE_h2 <- asreml::vpredict(model, h2 ~ V2 / (V1 + V2 + V3 + V4))[, 2]
+    SE_h2_yr <- asreml::vpredict(model, h2_wyr ~ V2 / (V1 + V2 + V3 + V4))[, 2]
+  } else {
+    SE_h2 <- asreml::vpredict(model, h2 ~ V3 / (V1 + V2 + V3 + V4 + V5))[, 2]
+    SE_h2_yr <- asreml::vpredict(model, h2_wyr ~ V3 / (V2 + V3 + V4 + V5))[, 2]
+  }
+    
   # Create a tibble with results
   herits <- tibble::tibble(
     name = c('Vp', 'Vp_yr', 'h2', 'h2_yr'),
