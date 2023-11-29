@@ -25,6 +25,8 @@ box::use(nadiv)
 box::use(tibble)
 box::use(ggdist[...])
 box::use(patchwork[...])
+box::use(distributional[...])
+
 
 
 output_plot_theme <- theme(
@@ -85,10 +87,6 @@ HD_spat <- readRDS(file.path(dirs$model_output, 'HD_dist_MIC.rds'))
 HD_envir <- readRDS(file.path(dirs$model_output, 'HD_envir_MIC.rds'))
 
 
-asreml::wald.asreml(LD_basic, ssType = "conditional", denDF = "numeric")
-
-#function to make output table - var comps and herit estimates
-#then also one for fixed effect output 
 
 #basic model outputs 
 summary(LD_basic)$varcomp
@@ -101,8 +99,6 @@ summary(HD_NB)$varcomp
 summary(HD_spat)$varcomp
 summary(HD_envir)$varcomp
 
-
-
 ```
 
 
@@ -111,10 +107,7 @@ LAYING DATE OUTPUT AND PLOTS
   
 ```{r Lay Date Output}
 
-
 #laying date results 
-
-list_components <- c('Vby', 'Va', 'Vpe', 'Vnb', 'Vspat', 'Venv', 'Vr', 'Vp', 'Vp_yr', 'h2', 'h2_yr')
 
 #variance componenets
 LD_varcomps <- rbind(mod$get_var_comps(model = LD_basic), 
@@ -143,13 +136,10 @@ LD_varcomps_changes <- LD_varcomps %>%
 #heritability
 #make new little table - Vp, Vp_year, h2, h2_year
 
-get_herit_asreml(LD_varcomps, LD_NB)
-
-
-LD_herits <- rbind(get_herit_asreml(LD_varcomps, LD_basic),
-                   get_herit_asreml(LD_varcomps, LD_NB),
-                   get_herit_asreml(LD_varcomps, LD_spat),
-                   get_herit_asreml(LD_varcomps, LD_envir)) %>%
+LD_herits <- rbind(get_herit_asreml(LD_varcomps, LD_basic, "LD_basic"),
+                   get_herit_asreml(LD_varcomps, LD_NB, "LD_NB"),
+                   get_herit_asreml(LD_varcomps, LD_spat, "LD_spat"),
+                   get_herit_asreml(LD_varcomps, LD_envir, "LD_envir")) %>%
   dplyr::mutate(Rel_Est = NA,
                 Rel_SE = NA,
                 model_name = c(rep('LD_basic', 4),
@@ -157,17 +147,8 @@ LD_herits <- rbind(get_herit_asreml(LD_varcomps, LD_basic),
                                rep('LD_spat', 4),
                                rep('LD_envir', 4)))
 
-sommer::vpredict(LD_basic, LD_basic.h2 ~ V2 / (V2 + V3 + V4))
-nadiv:::pin(LD_basic, LD_basic.h2 ~ V2 / (V2 + V3 + V4))
-
-LD_basic.h2 <- asreml::vpredict(LD_basic, LD_basic.h2 ~ V2 / (V2 + V3 + V4))
-LD_NB.h2 <- asreml::vpredict(LD_NB, LD_NB.h2 ~ V3 / (V2 + V3 + V4 + V5))
-LD_dist.h2 <- asreml::vpredict(LD_spat, LD_dist.h2 ~ V3 / (V2 + V3 + V4 + V5))
-LD_envir.h2 <- asreml::vpredict(LD_envir, LD_envir.h2 ~ V3 / (V2 + V3 + V4 + V5))
-
-
-install.packages("nadiv", repos="http://R-Forge.R-project.org")
-
+asreml::vpredict(LD_basic, h2 ~ V2 / (V1 + V2 + V3 + V4))
+asreml::vpredict(LD_basic, h2_wyr ~ V2 / (V2 + V3 + V4))
 
 head(LD_varcomps)
 head(LD_herits)
@@ -187,6 +168,9 @@ LD_all_merge <- LD_all %>%
          Rel_Est = ifelse(Rel_SE != '', paste(Rel_Est, ' (', Rel_SE, ')', sep = ''), Rel_Est)) %>%
   select(-c(SE, Rel_SE))
 #this is table use in results!
+
+write.csv(LD_all_merge, file = file.path(dirs$data_output,'LD_model_output.csv'), row.names = F)
+
 
 ```
 
@@ -217,10 +201,10 @@ HD_varcomps_changes <- HD_varcomps %>%
 
 #heritability
 #make new little table - Vp, Vp_year, h2, h2_year
-HD_herits <- rbind(get_herit(HD_varcomps, 'HD_basic'),
-                   get_herit(HD_varcomps, 'HD_NB'),
-                   get_herit(HD_varcomps, 'HD_spat'),
-                   get_herit(HD_varcomps, 'HD_envir')) %>%
+HD_herits <- rbind(get_herit_asreml(HD_varcomps, HD_basic, 'HD_basic'),
+                   get_herit_asreml(HD_varcomps, HD_NB, 'HD_NB'),
+                   get_herit_asreml(HD_varcomps, HD_spat, 'HD_spat'),
+                   get_herit_asreml(HD_varcomps, HD_envir, 'HD_envir')) %>%
   dplyr::mutate(Rel_Est = NA,
                 Rel_SE = NA,
                 model_name = c(rep('HD_basic', 4),
@@ -247,6 +231,9 @@ HD_all_merge <- HD_all %>%
          Rel_Est = ifelse(Rel_SE != '', paste(Rel_Est, ' (', Rel_SE, ')', sep = ''), Rel_Est)) %>%
   select(-c(SE, Rel_SE))
 #this is table use in results!
+
+write.csv(HD_all_merge, file = file.path(dirs$data_output,'HD_model_output.csv'), row.names = F)
+
 
 ```
 
@@ -314,7 +301,7 @@ ggsave(
 LD_herits_sub <- LD_herits %>%
   dplyr::filter(name == 'h2_yr')
 
-LD_herits_sub$SE <- c(0.05812232, 0.05441957, 0.02618386, 0.02379282)
+# LD_herits_sub$SE <- c(0.05812232, 0.05441957, 0.02618386, 0.02379282)
 #heritability - within-year
 #work out how to get the SE that this gets?
 
@@ -328,13 +315,12 @@ LD_herits_sub$model_name_plot <- c('Basic', 'Nestbox', 'Spatial', 'Breeding env.
 LD_herits_sub$model_name_plot  <- factor(LD_herits_sub$model_name_plot, 
                                 levels = c('Breeding env.', 'Spatial', 'Nestbox', 'Basic'))
 
-box::use(distributional[...])
 LD_herit_plot <- 
   ggplot(LD_herits_sub, 
                      aes(x = model_name_plot, 
                          y = Est,
                          ydist = distributional::dist_normal(Est, SE))) +
-  geom_hline(yintercept = c(0.0875, 0.1125, 0.1375, 0.1625, 0.1875, 0.2125, 0.2375), 
+  geom_hline(yintercept = c(0.0875, 0.1125, 0.1375, 0.1625, 0.1875, 0.2125, 0.2375, 0.2625), 
              linetype = "dashed", 
              color = "light grey",
              linewidth = 0.15) +
@@ -385,20 +371,13 @@ ggsave(
 
 ```{r Hatch Date Figures}
 
+
 #Name var comps in order 
 HD_varcomps$name_plot <- factor(HD_varcomps$name, levels=c('Vr', 'Vby', 'Vnb', 'Vspat', 'Venv', 'Vpe', 'Va'))
+
 HD_varcomps$model_name_plot <- 
   factor(HD_varcomps$model_name, levels=c('HD_basic', 'HD_NB', 'HD_spat', 'HD_envir'))
 
-#Set labels
-custom_model_labs <- gsub(' ', '\n', c("Basic", "Nestbox", "Spatial Prox.", "Breeding Env.Sim."))
-custom_legend_labels <- c(expression(V[R]), 
-                          expression(V[BY]), 
-                          expression(V[NB]), 
-                          expression(V[Spatial]), 
-                          expression(V[BreedEnv]), 
-                          expression(V[PE]),
-                          expression(V[A]))
 
 HD_var_comp <- 
   ggplot(HD_varcomps, 
@@ -436,21 +415,8 @@ ggsave(
 )
 
 
-
-#heritabiltiy
-
 HD_herits_sub <- HD_herits %>%
   dplyr::filter(name == 'h2_yr')
-
-HD_herits_sub$SE <- c(0.05093119, 0.0473452, 0.02406109, 0.01985468)
-#heritability - within-year
-#work out how to get the SE that this gets?
-
-HD_basic.h2 <- asreml::vpredict(HD_basic, HD_basic.h2 ~ V2 / (V2 + V3 + V4))
-HD_NB.h2 <- asreml::vpredict(HD_NB, HD_NB.h2 ~ V3 / (V2 + V3 + V4 + V5))
-HD_dist.h2 <- asreml::vpredict(HD_spat, HD_dist.h2 ~ V3 / (V2 + V3 + V4 + V5))
-HD_envir.h2 <- asreml::vpredict(HD_envir, HD_envir.h2 ~ V3 / (V2 + V3 + V4 + V5))
-
 
 HD_herits_sub$model_name_plot <- c('Basic', 'Nestbox', 'Spatial', 'Breeding env.') 
 HD_herits_sub$model_name_plot  <- factor(HD_herits_sub$model_name_plot, 
@@ -461,7 +427,7 @@ HD_herit_plot <-
                      aes(x = model_name_plot, 
                          y = Est,
                          ydist = distributional::dist_normal(Est, SE))) +
-  geom_hline(yintercept = c(0.0875, 0.1125, 0.1375, 0.1625, 0.1875, 0.2125, 0.2375), 
+  geom_hline(yintercept = c(0.0875, 0.1125, 0.1375, 0.1625, 0.1875, 0.2125, 0.2375, 0.2625), 
              linetype = "dashed", 
              color = "light grey",
              linewidth = 0.15) +
@@ -488,7 +454,8 @@ HD_herit_plot <-
                                       linewidth = 0.25, 
                                       linetype = 'dashed'),
     axis.title.y = element_blank(),
-    axis.ticks = element_blank()
+    axis.ticks = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
   ) 
 HD_herit_plot
 
@@ -497,14 +464,12 @@ ggsave(
   filename = file.path(dirs$plots, "HD_herit.png"),
   plot = HD_herit_plot,
   scale = 1,
-  width = 22,
-  height = 9,
+  width = 30,
+  height = 4,
   units = "cm",
   dpi = 350,
   limitsize = FALSE
 )
-
-
 
 
 ```
@@ -592,44 +557,9 @@ summary(LD_spat, coef = T)$coef.fixed
 summary(LD_envir, coef = T)$coef.fixed
 
 #wald tests
-# wald(LD_dist, denDF = "default", ssType = "conditional")$Wald
-# wald.asreml(LD_dist_env, ssType = "conditional", denDF = "numeric")  # P-value for fixed effects
-
-```
-
-
-
-```{r}
-# outputs -----------------------------------------------------------------
-
-
-#AIC
-LD_basic_AIC <- LD_basic$loglik
-LD_NB_AIC <- LD_NB$loglik
-LD_spat_AIC <- LD_spat$loglik
-LD_envir_AIC <- LD_envir$loglik
-
-
-#heritability - within-year
-LD_basic.h2 <- asreml::vpredict(LD_basic, LD_basic.h2 ~ V2 / (V2 + V3 + V4))
-LD_NB.h2 <- asreml::vpredict(LD_NB, LD_NB.h2 ~ V3 / (V2 + V3 + V4 + V5))
-LD_dist.h2 <- asreml::vpredict(LD_spat, LD_dist.h2 ~ V3 / (V2 + V3 + V4 + V5))
-LD_envir.h2 <- asreml::vpredict(LD_envir, LD_envir.h2 ~ V3 / (V2 + V3 + V4 + V5))
-
-#heritability - total
-LD_basic.h2tot <- asreml::vpredict(LD_basic, LD_basic.h2tot ~ V2 / (V1 + V2 + V3 + V4))
-LD_basic.resid.h2tot <- asreml::vpredict(LD_basic_resid, LD_basic.h2tot ~ V2 / (V1 + V2 + V3 + V4))
-
-
-HD_NB.h2tot <- asreml::vpredict(HD_NB, LD_NB.h2tot ~ V3 / (V1 + V2 + V3 + V4 + V5))
-HD_dist.h2tot <- asreml::vpredict(HD_spat, LD_dist.h2tot ~ V3 / (V1 + V2 + V3 + V4 + V5))
-LD_envir.h2tot <- asreml::vpredict(LD_envir, LD_envir.h2tot ~ V3 / (V1 + V2 + V3 + V4 + V5))
-
-
-#prop explained by NB, and matrices within year
-LD_NB.SPACEprop <- asreml::vpredict(LD_NB, LD_NB.SPACEprop ~ V2 / (V1 +V2 + V3 + V4 + V5))
-LD_dist.SPACEprop <- asreml::vpredict(LD_spat, LD_dist.SPACEprop ~ V2 / (V2 + V3 + V4 + V5))
-LD_envir.SPACEprop <- asreml::vpredict(LD_envir, LD_envir.SPACEprop ~ V2 / (V2 + V3 + V4 + V5))
+wald(LD_basic, denDF = "default", ssType = "conditional")$Wald
+wald.asreml(LD_basic, ssType = "conditional", denDF = "numeric")  # P-value for fixed effects
+asreml::wald.asreml(LD_basic, ssType = "conditional", denDF = "numeric")
 
 
 ```
@@ -688,6 +618,13 @@ Test significance of models
 
 ####FOR POSTER
 
+#prop explained by NB, and matrices within year
+LD_NB.SPACEprop <- asreml::vpredict(LD_NB, LD_NB.SPACEprop ~ V2 / (V1 +V2 + V3 + V4 + V5))
+LD_dist.SPACEprop <- asreml::vpredict(LD_spat, LD_dist.SPACEprop ~ V2 / (V2 + V3 + V4 + V5))
+LD_envir.SPACEprop <- asreml::vpredict(LD_envir, LD_envir.SPACEprop ~ V2 / (V2 + V3 + V4 + V5))
+
+
+
 ##ACCOUNTING FOR SPACE
 #with and without BY
 LD_space <- rbind(LD_NB.SPACEprop,
@@ -735,313 +672,64 @@ ggsave(
 )
 
 
-
-
-
-
-
-
-
-
-
-
 ```
 
 
-HATCHING DATE !!!
 
-```{r}
+```{r breeding dispersal}
 
-# Results HD  -------------------------------------------------------------
-
-HD_basic <- readRDS('./output/AnMod_test_basic_HD_FINAL.rds')
-HD_NB <- readRDS('./output/AnMod_test_NB_HD_FINAL.rds')
-HD_envir <- readRDS('./output/AnMod_test_envir_HD_FINAL.rds')
-HD_dist <- readRDS('./output/AnMod_test_dist_HD_FINAL.rds')
-
-summary(HD_basic)$varcomp
-summary(HD_NB)$varcomp
-summary(HD_dist)$varcomp
-summary(HD_envir)$varcomp
-
-#make to little tables of raw var comps
-HD_basic_varcomp <- summary(HD_basic)$varcomp
-HD_basic_varcomp <- rownames_to_column(HD_basic_varcomp, var = "comp")
-HD_basic_varcomp$model <- 'model 1'
-
-HD_NB_varcomp <- summary(HD_NB)$varcomp
-HD_NB_varcomp <- rownames_to_column(HD_NB_varcomp, var = "comp")
-HD_NB_varcomp$model <- 'model 2'
-
-HD_dist_varcomp <- summary(HD_dist)$varcomp
-HD_dist_varcomp <- rownames_to_column(HD_dist_varcomp, var = "comp")
-HD_dist_varcomp$model <- 'model 3'
-
-HD_envir_varcomp <- summary(HD_envir)$varcomp
-HD_envir_varcomp <- rownames_to_column(HD_envir_varcomp, var = "comp")
-HD_envir_varcomp$model <- 'model 4'
-
-#combine
-HD_varcomp_comb <- rbind(HD_basic_varcomp, HD_NB_varcomp, HD_dist_varcomp, HD_envir_varcomp)
-
-#fixed effects
-summary(HD_basic, coef = T)$coef.fixed
-summary(HD_NB, coef = T)$coef.fixed
-summary(HD_dist, coef = T)$coef.fixed
-summary(HD_envir, coef = T)$coef.fixed
-
-#AIC
-HD_basic_AIC <- HD_basic$loglik
-HD_NB_AIC <- HD_NB$loglik
-HD_dist_AIC <- HD_dist$loglik
-HD_envir_AIC <- HD_envir$loglik
-
-#total phenotypic variance
-HD_basic.VP <- vpredict(HD_basic, HD_basic.VP ~ V1 + V2 + V3 + V4)
-HD_NB.VP <- vpredict(HD_NB, HD_NB.VP ~ V1 + V2 + V3 + V4 + V5)
-HD_dist.VP <- vpredict(HD_dist, HD_dist.VP ~ V1 + V2 + V3 + V4 + V5)
-HD_envir.VP <- vpredict(HD_envir, HD_envir.VP ~ V1 + V2 + V3 + V4 + V5)
-
-#total phenotypic variance within year
-HD_basic.VPtot <- vpredict(HD_basic, HD_basic.VPtot ~  V2 + V3 + V4)
-HD_NB.VPtot <- vpredict(HD_NB, HD_NB.VPtot ~ V2 + V3 + V4 + V5)
-HD_dist.VPtot <- vpredict(HD_dist_test, HD_dist_test.VPtot ~ V2 + V3 + V4 + V5)
-HD_envir.VPtot <- vpredict(HD_envir, HD_envir.VPtot ~ V2 + V3 + V4 + V5)
-
-#heritability - total
-HD_basic.h2tot <- vpredict(HD_basic, HD_basic.h2tot ~ V2 / (V2 + V3 + V4))
-HD_NB.h2tot <- vpredict(HD_NB, HD_NB.h2tot ~ V3 / (V2 + V3 + V4 + V5))
-HD_dist.h2tot <- vpredict(HD_dist_test, HD_dist_test.h2tot ~ V3 / (V2 + V3 + V4 + V5))
-HD_envir.h2tot <- vpredict(HD_envir, HD_envir_test.h2tot ~ V3 / (V2 + V3 + V4 + V5))
-
-#heritability - within-year
-HD_basic.h2 <- vpredict(HD_basic, HD_basic.h2 ~ V2 / (V1 + V2 + V3 + V4))
-HD_NB.h2 <- vpredict(HD_NB, HD_NB.h2 ~ V3 / (V1 + V2 + V3 + V4 + V5))
-HD_dist.h2 <- vpredict(HD_dist, HD_dist.h2 ~ V3 / (V1 + V2 + V3 + V4 + V5))
-HD_envir.h2 <- vpredict(HD_envir, HD_envir.h2 ~ V3 / (V1 + V2 + V3 + V4 + V5))
+gtit_data_sub_nb <- read.csv(file.path(dirs$data_output, 'GTIT_data_anim_mod.csv'), na.strings=c("", "NA"))
 
 
-#get prop explained by each var comp
-#breed year
-HD_basic.BY <- vpredict(HD_basic, BY ~ V1)
-HD_NB.BY <- vpredict(HD_NB, BY ~ V1)
-HD_dist.BY <- vpredict(HD_dist, BY ~ V1)
-HD_envir.BY <- vpredict(HD_envir, BY ~ V1)
-#mother vm
-HD_basic.VM <- vpredict(HD_basic, VM ~ V2 )
-HD_NB.VM <- vpredict(HD_NB, VM ~ V3 )
-HD_dist.VM <- vpredict(HD_dist, VM ~ V3 )
-HD_envir.VM <- vpredict(HD_envir, VM ~ V3 )
-#mother ide
-HD_basic.IDE <- vpredict(HD_basic, IDE ~ V3)
-HD_NB.IDE <- vpredict(HD_NB, IDE ~ V4)
-HD_dist.IDE <- vpredict(HD_dist, IDE ~ V4)
-HD_envir.IDE <- vpredict(HD_envir, IDE ~ V4)
-#residuls
-HD_basic.R <- vpredict(HD_basic, R ~ V4)
-HD_NB.R <- vpredict(HD_NB, R ~ V5)
-HD_dist.R <- vpredict(HD_dist, R ~ V5)
-HD_envir.R <- vpredict(HD_envir, R ~ V5)
-#matrix
-HD_basic.NONE <- 0
-HD_NB.NB <- vpredict(HD_NB, NB ~ V2)
-HD_dist.DIST <- vpredict(HD_dist, DIST ~ V2)
-HD_envir.ENVIR <- vpredict(HD_envir, ENVIR ~ V2)
+data_doubles <- gtit_data_sub_nb %>%
+  group_by(Mother) %>%
+  filter(n() > 1) %>%
+  ungroup()
+nrow(data_doubles) #6571
+data_doubles_summ <- data_doubles %>%
+  group_by(Mother) %>%
+  summarise(num = length(Mother))
+#table of number of breeding attempts
+table(data_doubles_summ$num)
 
+#distance between breeding attempts 
+dists <- data_doubles %>%
+    rename(year = breeding_year) %>%
+    group_by(Mother) %>%
+    mutate(
+        x2 = dplyr::lead(x),
+        y2 = dplyr::lead(y),
+        year2 = dplyr::lead(year),
+        box2 = dplyr::lead(nest.box)
+    ) %>%
+    mutate(dist = sqrt((x2 - x)^2 + (y2 - y)^2)) %>%
+    ungroup() %>%
+    select(Mother, year, year2, nest.box, box2, dist)
 
-#test model signif
-#
-2*(HD_dist$loglik-HD_NB$loglik)
-1-pchisq(2*(HD_dist$loglik-HD_NB$loglik),1)
-
-#
-2*(HD_dist$loglik-HD_envir$loglik)
-1-pchisq(2*(HD_dist$loglik-HD_envir$loglik),1)
-
-#
-2*(HD_envir$loglik-HD_NB$loglik)
-1-pchisq(2*(HD_envir$loglik-HD_NB$loglik),1)
-
-
-
-
-
-#combine
-HD_basic_comb <- rbind(HD_basic.BY, 
-                    HD_basic.VM,
-                    HD_basic.IDE, 
-                    HD_basic.R
-)
-
-HD_basic_comb <- rownames_to_column(HD_basic_comb, var = "variable")
-HD_basic_comb$model <- 'model 1'
-HD_basic_comb$prop <- HD_basic_comb$Estimate / sum(HD_basic_comb$Estimate)
-HD_basic_comb$propSE <- HD_basic_comb$SE / sum(HD_basic_comb$SE)
-
-
-
-HD_NB_comb <- rbind(HD_NB.BY, 
-                 HD_NB.VM,
-                 HD_NB.IDE, 
-                 HD_NB.R,
-                 HD_NB.NB
-)
-
-HD_NB_comb <- rownames_to_column(HD_NB_comb, var = "variable")
-HD_NB_comb$model <- 'model 2'
-HD_NB_comb$prop <- HD_NB_comb$Estimate / sum(HD_NB_comb$Estimate)
-HD_NB_comb$propSE <- HD_NB_comb$SE / sum(HD_NB_comb$SE)
-
-
-
-HD_dist_comb <- rbind(HD_dist.BY, 
-                   HD_dist.VM,
-                   HD_dist.IDE, 
-                   HD_dist.R,
-                   HD_dist.DIST
-)
-
-HD_dist_comb <- rownames_to_column(HD_dist_comb, var = "variable")
-HD_dist_comb$model <- 'model 3'
-HD_dist_comb$prop <- HD_dist_comb$Estimate / sum(HD_dist_comb$Estimate)
-HD_dist_comb$propSE <- HD_dist_comb$SE / sum(HD_dist_comb$SE)
-
-
-HD_envir_comb <- rbind(HD_envir.BY, 
-                    HD_envir.VM,
-                    HD_envir.IDE, 
-                    HD_envir.R,
-                    HD_envir.ENVIR
-)
-
-HD_envir_comb <- rownames_to_column(HD_envir_comb, var = "variable")
-HD_envir_comb$model <- 'model 4'
-HD_envir_comb$prop <- HD_envir_comb$Estimate / sum(HD_envir_comb$Estimate)
-HD_envir_comb$propSE <- HD_envir_comb$SE / sum(HD_envir_comb$SE)
-
-
-HD_all_comb <- rbind(HD_basic_comb, HD_NB_comb, HD_dist_comb, HD_envir_comb)
-
-#plot variance componenets
-# all_comb$model = factor(all_comb$model, levels = c('HD_basic', 'HD_NB', 'HD_dist', 'HD_envir'))
-HD_var_comp <- ggplot(HD_all_comb, aes(x = model, y = prop, fill = variable)) +
-  geom_col(position = 'stack') + 
-  ylab('Proportion of variance') + xlab(label = '') +
-  scale_fill_manual(values=c("#43BB99", "#99DDFE", "#FEAABB",
-                             "#EEDD88", "#EE8866", "#77AADE", 'dark grey')) +
-  theme(
-    axis.title.y = element_blank(),
-    panel.border=element_blank(),
-    panel.grid.major=element_blank(),
-    panel.grid.minor=element_blank(),
-    plot.margin = unit(c(.8, .8, .8, .8), "cm"),
-    plot.background =
-      ggplot2::element_rect(fill = 'transparent'),
-    panel.background =
-      ggplot2::element_rect(fill = 'transparent')
-  )
+#plot
+breed_disp <- 
+  ggplot(subset(dists, !is.na(dist)), aes(x = dist)) + 
+  geom_histogram(fill = '#77AADE', colour = '#2F5597') + 
+  geom_vline(xintercept = median(dists$dist, na.rm = T), 
+             colour = '#2F5597',
+             linewidth = 1,
+             linetype = 'dashed') + 
+  scale_x_continuous(breaks = seq(0, 2700, by = 500)) + 
+  xlab('Breeding dispersal distance (m)') + ylab('Count') + 
+  output_plot_theme
+breed_disp
 
 ggsave(
-  filename = "var_comp_HD.png",
-  plot = HD_var_comp,
+  filename = "./plots/breeding_dispersal_distance.png",
+  plot = breed_disp,
   scale = 1,
-  width = 14,
-  height = 18,
+  width = 15,
+  height = 10,
   units = "cm",
   dpi = 350,
   limitsize = FALSE,
   bg = "transparent"
 )
-
-#plot heritability
-
-HD_herit <- rbind(HD_basic.h2, HD_NB.h2, HD_dist.h2, HD_envir.h2)
-HD_herit <- rownames_to_column(HD_herit, var = "model")
-HD_herit$model2 <- c('model 1', 'model 2', 'model 3', 'model 4')
-
-HD_herit$model2 = factor(HD_herit$model2, levels = c('model 4', 'model 3', 
-                                               'model 2', 'model 1'))
-HD_herit_plot <- ggplot(HD_herit, aes(x = model2, y = Estimate)) +
-  geom_col(fill = '#77AADE') + 
-  geom_errorbar(aes(ymin = Estimate - SE, ymax = Estimate + SE)) +
-  theme_bw() + coord_flip() +
-  ylab('Within-year heritability') +
-  theme(
-    axis.title.y = element_blank(),
-    panel.border=element_blank(),
-    panel.grid.major=element_blank(),
-    panel.grid.minor=element_blank(),
-    plot.margin = unit(c(.8, .8, .8, .8), "cm"),
-    plot.background =
-      ggplot2::element_rect(fill = 'transparent'),
-    panel.background =
-      ggplot2::element_rect(fill = 'transparent')
-  )
-
-ggsave(
-  filename = "herit_plot_HD.png",
-  plot = HD_herit_plot,
-  scale = 1,
-  width = 20,
-  height = 5,
-  units = "cm",
-  dpi = 350,
-  limitsize = FALSE,
-  bg = "transparent"
-)
-
-
-
-
-###combine to make table
-
-#empty rows for Nb envir and spatial
-HD_env_row <- data.frame('variable' = 'ENV', 'component' = '-', 'std.error' = '-',
-                      'prop' = '-', 'propSE' = '-')
-HD_dist_row <- data.frame('variable' = 'DIST', 'component' = '-', 'std.error' = '-',
-                       'prop' = '-', 'propSE' = '-')
-HD_NB_row <- data.frame('variable' = 'NB', 'component' = '-', 'std.error' = '-',
-                     'prop' = '-', 'propSE' = '-')
-
-#these have raw values
-#HD_basic_varcomp, HD_NB_varcomp, HD_dist_varcomp, HD_envir_varcomp
-
-HD_basic_est <- rbind(cbind(HD_basic_comb[1], HD_basic_varcomp[2], HD_basic_varcomp[3],
-                            HD_basic_comb[5], HD_basic_comb[6]), HD_NB_row, HD_dist_row, HD_env_row)
-
-HD_NB_est <- rbind(cbind(HD_NB_comb[1], HD_NB_varcomp[2], HD_NB_varcomp[3],
-                         HD_NB_comb[5], HD_NB_comb[6]), HD_dist_row, HD_env_row)
-
-HD_dist_est <- rbind(cbind(HD_dist_comb[1], HD_dist_varcomp[2], HD_dist_varcomp[3],
-                           HD_dist_comb[5], HD_dist_comb[6]), HD_NB_row)
-#make sure rows in same order as others
-HD_dist_est <- HD_dist_est %>% slice(-5) %>% bind_rows(HD_dist_est %>% slice(5))
-HD_dist_est <- rbind(HD_dist_est, HD_env_row)
-
-HD_env_est <- rbind(cbind(HD_envir_comb[1], HD_envir_varcomp[2], HD_envir_varcomp[3],
-                          HD_envir_comb[5], HD_envir_comb[6]), HD_NB_row, HD_dist_row)
-HD_env_est <- HD_env_est %>% slice(-5) %>% bind_rows(HD_env_est %>% slice(5))
-
-
-#these have proportions
-#basic_comb, NB_comb, dist_comb, envir_comb
-
-HD_basic_est2 <- rbind(HD_basic.VPtot, HD_basic.VP, HD_basic.h2tot, HD_basic.h2)
-HD_NB_est2 <- rbind(HD_NB.VP, HD_NB.VPtot, HD_NB.h2tot, HD_NB.h2)
-HD_dist_est2 <- rbind(HD_dist.VP, HD_dist.VPtot, HD_dist.h2tot, HD_dist.h2)
-HD_env_est2 <- rbind(HD_envir.VP, HD_envir.VPtot, HD_envir.h2tot, HD_envir.h2)
-
-
-#output these 
-HD_all_est <- cbind(HD_basic_est, HD_NB_est, HD_dist_est, HD_env_est)
-write.csv(HD_all_est, file = './output/AnMod_estimates_varcomps_HD.csv')
-
-
-HD_all_est2 <- cbind(HD_basic_est2, HD_NB_est2, HD_dist_est2, HD_env_est2)
-write.csv(HD_all_est2, file = './output/AnMod_estimates_tots_HD.csv')
-
-
-
 
 
 ```
