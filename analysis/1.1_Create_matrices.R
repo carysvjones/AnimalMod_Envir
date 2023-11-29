@@ -1,6 +1,4 @@
 #Create matrices and compare
-
-
 # Dependencies
 
 box::use(.. / R / dirs[dirs])
@@ -18,11 +16,20 @@ box::use(magrittr[`%>%`])
 box::use(Matrix)
 
 
-gtit_data_sub_nb <- read.csv(file.path(dirs$data_output, 'GTIT_data_anim_mod.csv'), na.strings=c("", "NA"))
+gtit_data_sub_nb <- read.csv(
+  file.path(
+    dirs$data_output,
+    "GTIT_data_anim_mod.csv"
+  ),
+  na.strings = c("", "NA")
+)
 nrow(gtit_data_sub_nb) #11661
 
-gtit_data_sub_nb <- gtit_data_sub_nb %>% #don't make breeding year a factor?
-  mutate_at(c('breeding_year', 'Mother', 'Fbreeding_age_group', 'nest.box'), as.factor)
+gtit_data_sub_nb <- gtit_data_sub_nb %>% # don't make breeding year a factor?
+  mutate_at(
+    c("breeding_year", "Mother", "Fbreeding_age_group", "nest.box"),
+    as.factor
+  )
 
 #to run with a subset
 #put dates as range e.g. 2011:2021, or 'ALL' to get all years of data
@@ -43,13 +50,15 @@ length(unique(breed_data_uniq$Mother)) #7680
 
 # ENVIRONMENT SIM MATRIX  -------------------------------------------------
 
-# As environmental measures may occur on different scales, we first scale and center the environmental data.
-# This is done by taking away the mean (so the mean becomes 0) and dividing by the standard deviation for
+# As environmental measures may occur on different scales, we first scale
+# and center the environmental data.
+# This is done by taking away the mean (so the mean becomes 0)
+# and dividing by the standard deviation for
 # each environmental measure (so the variance becomes 1).
 # First gets the relevant columns from the data
 
-env_var <- breed_data_uniq[,c("alt_mean", "northness_mean", "edge_mean", "No_trees_75m_mean",
-                              "area_polygon_sqrt")]
+env_var <- breed_data_uniq[,c("alt_mean", "northness_mean", "edge_mean",
+"No_trees_75m_mean", "area_polygon_sqrt")]
 
 # Centers the data, and scales by standard deviation
 env_var <- scale(env_var, center = T, scale = T)
@@ -57,12 +66,18 @@ rownames(env_var) <- breed_data_uniq$Mother
 
 # similarity matrix between individuals
 # calculates the euclidean distance between each
-#individual's environment parameters
-env_var_euc <- as.matrix(dist(env_var, method = "euclidean", diag = T, upper = T))
+# individual's environment parameters
+env_var_euc <- as.matrix(dist(env_var,
+  method = "euclidean",
+  diag = T,
+  upper = T
+))
 
 # then scales so that the values are between 0 and 1
 env_var_euc_scal <- 1 - env_var_euc / max (env_var_euc, na.rm = TRUE)
-colnames(env_var_euc_scal) <- rownames(env_var_euc_scal) <- breed_data_uniq$Mother
+colnames(env_var_euc_scal) <-
+  rownames(env_var_euc_scal) <-
+  breed_data_uniq$Mother
 
 p <- as(solve(env_var_euc_scal),"dgCMatrix")
 p <- as.matrix(env_var_euc_scal)
@@ -71,7 +86,7 @@ p <- as.matrix(env_var_euc_scal)
 env_var_euc_scal_PD <- Matrix::nearPD(env_var_euc_scal)
 env_matrix <- env_var_euc_scal_PD$mat
 
-saveRDS(env_matrix, file = file.path(dirs$data_output,'env_matrix.rds'))
+saveRDS(env_matrix, file = file.path(dirs$data_output,"env_matrix.rds"))
 
 
 
@@ -321,12 +336,16 @@ comp_mat_zero <- ggplot(nest_both, aes(x = dist2, y = envir2)) +
   geom_hex() +
   scale_fill_gradient( low = '#4945A0', high = '#E7E4EF') +
   xlab('Spatial') + ylab('Environment') +
-  theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
-        plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+  theme(panel.background =
+  element_rect(fill = 'transparent'), #transparent panel bg
+        plot.background =
+        element_rect(fill = 'transparent', color = NA), #transparent plot bg
         panel.grid.major = element_blank(), #remove major gridlines
         panel.grid.minor = element_blank(), #remove minor gridlines
-        legend.background = element_rect(fill='transparent'), #transparent legend bg
-        legend.box.background = element_rect(fill='transparent'), #transparent legend panel
+        legend.background =
+        element_rect(fill = 'transparent'), #transparent legend bg
+        legend.box.background =
+        element_rect(fill ='transparent'), #transparent legend panel
         # panel.background = element_rect(fill = "#B4C7E7", color = "#B4C7E7"),
         # plot.background = element_rect(fill = "#B4C7E7", color = "#B4C7E7"),
         # panel.grid.major.x = element_blank(),
@@ -358,12 +377,16 @@ raw_plot <- ggplot(nest_both, aes(x = dist_raw, y = envir_raw)) +
   geom_hex() +
   scale_fill_gradient( low = '#4945A0', high = '#E7E4EF') +
   xlab('Distance (m)') + ylab('Environmental Similarity') +
-  theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
-        plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+  theme(panel.background =
+  element_rect(fill = 'transparent'), #transparent panel bg
+        plot.background =
+        element_rect(fill = 'transparent', color = NA), #transparent plot bg
         panel.grid.major = element_blank(), #remove major gridlines
         panel.grid.minor = element_blank(), #remove minor gridlines
-        legend.background = element_rect(fill='transparent'), #transparent legend bg
-        legend.box.background = element_rect(fill='transparent'), #transparent legend panel
+        legend.background =
+        element_rect(fill = 'transparent'), #transparent legend bg
+        legend.box.background =
+        element_rect(fill = 'transparent'), #transparent legend panel
         # panel.background = element_rect(fill = "#B4C7E7", color = "#B4C7E7"),
         # plot.background = element_rect(fill = "#B4C7E7", color = "#B4C7E7"),
         # panel.grid.major.x = element_blank(),
