@@ -8,9 +8,9 @@ output: html_document
 
 # Dependencies
 ```{r Dependencies}
-box::use(.. / R / dirs[dirs])
-box::use(clean = ../ R / clean_data)
-box::use(mod = ../ R / for_models)
+box::use(R / dirs[dirs])
+box::use(clean = R / clean_data)
+box::use(mod = R / for_models)
 
 
 box::use(readr[read_csv])
@@ -54,7 +54,8 @@ output_plot_theme <- theme(
 
 #asreml requires a licence and install 
 # library(asreml)
-# install.packages("/Users/user/Downloads/asreml_4.2.0.276.tgz", repos = NULL, type = "source")
+# install.packages("/Users/user/Downloads/asreml_4.2.0.276.tgz", 
+# repos = NULL, type = "source")
 
 # psetts <- list(
 #     text.colour = "#f2f2f2",
@@ -134,10 +135,10 @@ LD_varcomps_changes <- LD_varcomps %>%
 #heritability
 #make new little table - Vp, Vp_year, h2, h2_year
 
-LD_herits <- rbind(get_herit_asreml(LD_varcomps, LD_basic, "LD_basic"),
-                   get_herit_asreml(LD_varcomps, LD_NB, "LD_NB"),
-                   get_herit_asreml(LD_varcomps, LD_spat, "LD_spat"),
-                   get_herit_asreml(LD_varcomps, LD_envir, "LD_envir")) %>%
+LD_herits <- rbind(mod$get_herit_asreml(LD_varcomps, LD_basic, "LD_basic"),
+                   mod$get_herit_asreml(LD_varcomps, LD_NB, "LD_NB"),
+                   mod$get_herit_asreml(LD_varcomps, LD_spat, "LD_spat"),
+                   mod$get_herit_asreml(LD_varcomps, LD_envir, "LD_envir")) %>%
   dplyr::mutate(Rel_Est = NA,
                 Rel_SE = NA,
                 model_name = c(rep('LD_basic', 4),
@@ -145,8 +146,6 @@ LD_herits <- rbind(get_herit_asreml(LD_varcomps, LD_basic, "LD_basic"),
                                rep('LD_spat', 4),
                                rep('LD_envir', 4)))
 
-asreml::vpredict(LD_basic, h2 ~ V2 / (V1 + V2 + V3 + V4))
-asreml::vpredict(LD_basic, h2_wyr ~ V2 / (V2 + V3 + V4))
 
 head(LD_varcomps)
 head(LD_herits)
@@ -154,8 +153,8 @@ head(LD_herits)
 #bind together and to 3 dp - combine all using dplyr
 
 LD_all <- rbind(LD_varcomps, LD_herits) %>%
-    mutate_at(vars(Est, SE, Rel_Est, Rel_SE),
-              ~ if_else(is.na(.), '',
+  mutate_at(vars(Est, SE, Rel_Est, Rel_SE),
+              ~ if_else(is.na(.), "",
                         format(round(., 3), nsmall = 3)))
 #order them by model
 order <- c('LD_basic', 'LD_NB', 'LD_spat', 'LD_env')
@@ -182,27 +181,13 @@ HD_varcomps <- rbind(mod$get_var_comps(model = HD_basic),
   
 HD_varcomps
 
-#how do they change between models
-#get table with rel estimate for each model for var comp
-#then create columns with differences 
-#for NB, and matrices are positive cause not there at all in model 1                                
-HD_varcomps_changes <- HD_varcomps %>%
-  dplyr::select(name, Rel_Est, model_name) %>%
-  tidyr::pivot_wider(id_cols = name, names_from = model_name, values_from = Rel_Est) %>%
-  dplyr::mutate(HD_basic_temp = ifelse(is.na(HD_basic), 0, LD_basic),
-                HD_NB_diff = (LD_NB - LD_basic_temp) * 100,
-                HD_spat_diff = (LD_spat - LD_basic_temp) * 100,
-                HD_envir_diff = (LD_envir - LD_basic_temp) * 100,
-                HD_basic = LD_basic * 100) %>%
-  dplyr::select(name, LD_basic, LD_NB_diff, LD_spat_diff, LD_envir_diff)
-
 
 #heritability
 #make new little table - Vp, Vp_year, h2, h2_year
-HD_herits <- rbind(get_herit_asreml(HD_varcomps, HD_basic, 'HD_basic'),
-                   get_herit_asreml(HD_varcomps, HD_NB, 'HD_NB'),
-                   get_herit_asreml(HD_varcomps, HD_spat, 'HD_spat'),
-                   get_herit_asreml(HD_varcomps, HD_envir, 'HD_envir')) %>%
+HD_herits <- rbind(mod$get_herit_asreml(HD_varcomps, HD_basic, 'HD_basic'),
+                   mod$get_herit_asreml(HD_varcomps, HD_NB, 'HD_NB'),
+                   mod$get_herit_asreml(HD_varcomps, HD_spat, 'HD_spat'),
+                   mod$get_herit_asreml(HD_varcomps, HD_envir, 'HD_envir')) %>%
   dplyr::mutate(Rel_Est = NA,
                 Rel_SE = NA,
                 model_name = c(rep('HD_basic', 4),
@@ -295,7 +280,6 @@ ggsave(
 )
 
 
-
 LD_herits_sub <- LD_herits %>%
   dplyr::filter(name == 'h2_yr')
 
@@ -303,10 +287,10 @@ LD_herits_sub <- LD_herits %>%
 #heritability - within-year
 #work out how to get the SE that this gets?
 
-LD_basic.h2 <- asreml::vpredict(LD_basic, LD_basic.h2 ~ V2 / (V2 + V3 + V4))
-LD_NB.h2 <- asreml::vpredict(LD_NB, LD_NB.h2 ~ V3 / (V2 + V3 + V4 + V5))
-LD_dist.h2 <- asreml::vpredict(LD_spat, LD_dist.h2 ~ V3 / (V2 + V3 + V4 + V5))
-LD_envir.h2 <- asreml::vpredict(LD_envir, LD_envir.h2 ~ V3 / (V2 + V3 + V4 + V5))
+# LD_basic.h2 <- asreml::vpredict(LD_basic, LD_basic.h2 ~ V2 / (V2 + V3 + V4))
+# LD_NB.h2 <- asreml::vpredict(LD_NB, LD_NB.h2 ~ V3 / (V2 + V3 + V4 + V5))
+# LD_dist.h2 <- asreml::vpredict(LD_spat, LD_dist.h2 ~ V3 / (V2 + V3 + V4 + V5))
+# LD_envir.h2 <- asreml::vpredict(LD_envir, LD_envir.h2 ~ V3 / (V2 + V3 + V4 + V5))
 
 
 LD_herits_sub$model_name_plot <- c('Basic', 'Nestbox', 'Spatial', 'Breeding env.') 
@@ -346,10 +330,9 @@ LD_herit_plot <-
                                       linetype = 'dashed'),
     axis.title.y = element_blank(),
     axis.ticks = element_blank(),
-    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+    panel.border = element_rect(color = "grey", fill = NA, linewidth = 1)
   ) 
 LD_herit_plot
-
 
 ggsave(
   filename = file.path(dirs$plots, "LD_herit.png"),
@@ -359,7 +342,8 @@ ggsave(
   height = 4,
   units = "cm",
   dpi = 350,
-  limitsize = FALSE
+  limitsize = FALSE,
+  bg = "transparent"
 )
 
 ```
@@ -416,16 +400,24 @@ ggsave(
 HD_herits_sub <- HD_herits %>%
   dplyr::filter(name == 'h2_yr')
 
-HD_herits_sub$model_name_plot <- c('Basic', 'Nestbox', 'Spatial', 'Breeding env.') 
-HD_herits_sub$model_name_plot  <- factor(HD_herits_sub$model_name_plot, 
-                                levels = c('Breeding env.', 'Spatial', 'Nestbox', 'Basic'))
+HD_herits_sub$model_name_plot <- c(
+  "Basic", "Nestbox", "Spatial",
+  "Breeding env."
+)
+HD_herits_sub$model_name_plot <- factor(HD_herits_sub$model_name_plot,
+  levels = c(
+    "Breeding env.", "Spatial",
+    "Nestbox", "Basic"
+  )
+)
 
 HD_herit_plot <- 
   ggplot(HD_herits_sub, 
                      aes(x = model_name_plot, 
                          y = Est,
                          ydist = distributional::dist_normal(Est, SE))) +
-  geom_hline(yintercept = c(0.0875, 0.1125, 0.1375, 0.1625, 0.1875, 0.2125, 0.2375, 0.2625), 
+  geom_hline(yintercept = c(0.0875, 0.1125, 0.1375, 0.1625, 0.1875, 
+                            0.2125, 0.2375, 0.2625), 
              linetype = "dashed", 
              color = "light grey",
              linewidth = 0.15) +
@@ -453,7 +445,7 @@ HD_herit_plot <-
                                       linetype = 'dashed'),
     axis.title.y = element_blank(),
     axis.ticks = element_blank(),
-    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+    panel.border = element_rect(color = "grey", fill = NA, linewidth = 1)
   ) 
 HD_herit_plot
 
