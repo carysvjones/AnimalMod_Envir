@@ -308,7 +308,7 @@ LD_herit_plot <-
              linewidth = 0.15) +
   geom_errorbar(aes(ymin = Est - SE,
                     ymax = Est + SE),
-                width = 0.2,
+                width = 0.5,
                 colour = '#2F5597') +
   geom_point(colour = '#2F5597',
              size = 5,
@@ -330,7 +330,9 @@ LD_herit_plot <-
                                       linetype = 'dashed'),
     axis.title.y = element_blank(),
     axis.ticks = element_blank(),
-    panel.border = element_rect(color = "grey", fill = NA, linewidth = 1)
+    panel.border = element_rect(color = "grey", fill = NA, linewidth = 1),
+        panel.background = element_rect(fill = 'transparent', color = NA)
+
   ) 
 LD_herit_plot
 
@@ -339,7 +341,7 @@ ggsave(
   plot = LD_herit_plot,
   scale = 1,
   width = 30,
-  height = 4,
+  height = 8,
   units = "cm",
   dpi = 350,
   limitsize = FALSE,
@@ -347,7 +349,6 @@ ggsave(
 )
 
 ```
-
 
 
 
@@ -423,7 +424,7 @@ HD_herit_plot <-
              linewidth = 0.15) +
   geom_errorbar(aes(ymin = Est - SE,
                     ymax = Est + SE),
-                width = 0.2,
+                width = 0.5,
                 colour = '#2F5597') +
   geom_point(colour = '#2F5597',
              size = 5,
@@ -445,7 +446,9 @@ HD_herit_plot <-
                                       linetype = 'dashed'),
     axis.title.y = element_blank(),
     axis.ticks = element_blank(),
-    panel.border = element_rect(color = "grey", fill = NA, linewidth = 1)
+    panel.border = element_rect(color = "grey", fill = NA, linewidth = 1),
+    # make whole plot outline transparent
+    panel.background = element_rect(fill = 'transparent', color = NA)
   ) 
 HD_herit_plot
 
@@ -455,7 +458,7 @@ ggsave(
   plot = HD_herit_plot,
   scale = 1,
   width = 30,
-  height = 4,
+  height = 8,
   units = "cm",
   dpi = 350,
   limitsize = FALSE
@@ -466,22 +469,7 @@ ggsave(
 
 
 
-```{r Join plots}
-
-box::use(patchwork[...])
-
-plots <- (LD_var_comp | HD_var_comp) / LD_herit_plot / HD_herit_plot
-
-
-(LD_var_comp +  HD_var_comp +  plot_layout(guides = 'collect') )/
-  LD_herit_plot / HD_herit_plot
-
-
-
-```
-
-
-PLot of environment factor
+Plot of environment factor
 ```{r }
 
 LD_varcomps_mat <- LD_varcomps %>%
@@ -528,28 +516,6 @@ env_var_plot <-
   ) 
   
 env_var_plot
-
-
-```
-
-
-
-
-Fixed effects
-
-```{r Fixed effects}
-
-
-#fixed effects
-summary(LD_basic, coef = T)$coef.fixed
-summary(LD_NB, coef = T)$coef.fixed
-summary(LD_spat, coef = T)$coef.fixed
-summary(LD_envir, coef = T)$coef.fixed
-
-#wald tests
-wald(LD_basic, denDF = "default", ssType = "conditional")$Wald
-wald.asreml(LD_basic, ssType = "conditional", denDF = "numeric")  # P-value for fixed effects
-asreml::wald.asreml(LD_basic, ssType = "conditional", denDF = "numeric")
 
 
 ```
