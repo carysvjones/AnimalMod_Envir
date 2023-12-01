@@ -23,16 +23,25 @@ box::use(tidyr)
 box::use(magrittr[`%>%`])
 box::use(asreml[...])
 box::use(Matrix)
+box::use(brms[...])
+# box::use(bayesplot[...])
+# box::use(tidybayes[...])
+box::use(marginaleffects[...])
 ```
 
 
 
 ```{r Read in Data}
-gtit_data_sub_nb <- read.csv(file.path(dirs$data_output, "GTIT_data_anim_mod.csv"), na.strings = c("", "NA"))
-nrow(gtit_data_sub_nb) # 11661
+gtit_data_sub_nb <-
+  read.csv(file.path(dirs$data_output, "GTIT_data_anim_mod.csv"),
+    na.strings = c("", "NA")
+  ) %>%
+  mutate_at(
+    c("breeding_year", "Mother", "Fbreeding_age_group", "nest.box"),
+    as.factor
+  )
 
-gtit_data_sub_nb <- gtit_data_sub_nb %>% # don't make breeding year a factor?
-  mutate_at(c("breeding_year", "Mother", "Fbreeding_age_group", "nest.box"), as.factor)
+nrow(gtit_data_sub_nb) # 11661
 
 # to run with a subset
 # put dates as range e.g. 2011:2021, or 'ALL' to get all years of data
@@ -44,38 +53,19 @@ nrow(breed_data) # 11661
 
 
 ```{r Correlation lay and hatch}
-box::use(brms[...])
-
 # Fit model
-fit <- brm(April.hatch.date ~ April.lay.date,
-  data = gtit_data_sub_nb
+LD_HD_mod <- brms::brm(April.hatch.date ~ April.lay.date,
+  data = gtit_data_sub_nb,
+  family = gaussian()
 )
-plot_slopes(fit, "April.lay.date")
 
-
+plot_slopes(LD_HD_mod, "April.lay.date")
 # Print the summary of the fitted model
-summary(fit)
-plot(fit)
-
-library(marginaleffects)
-plot_slopes(fit, variables = "April.lay.date")
-
-mtcars %>%
-  data_grid(hp = seq_range(hp, n = 101)) %>%
-  # NOTE: this shows the use of ndraws to subsample within add_epred_draws()
-  # ONLY do this IF you are planning to make spaghetti plots, etc.
-  # NEVER subsample to a small sample to plot intervals, densities, etc.
-  tidybayes::add_epred_draws(fit, ndraws = 100) %>%
-  ggplot(aes(x = April.lay.date, y = April.hatch.date)) +
-  geom_line(aes(y = .epred, alpha = .1)) +
-  geom_point(data = gtit_data_sub_nb) +
-  scale_color_brewer(palette = "Dark2")
-
-
-LD_HD_mod <- lm(April.hatch.date ~ April.lay.date,
-  data = gtit_data_sub_nb
-)
 summary(LD_HD_mod)
+plot(LD_HD_mod)
+
+
+plot_slopes(fit, variables = "April.lay.date")
 
 effect_plot(LD_HD_mod, pred = displ, interval = TRUE, plot.points = TRUE)
 
@@ -83,9 +73,6 @@ ggplot(gtit_data_sub_nb, aes(x = April.lay.date, y = April.hatch.date)) +
   geom_smooth(method = "lm", se = T) +
   output_plot_theme
 ```
-
-
-
 
 
 ```{r Prep Ped}
@@ -223,4 +210,48 @@ saveRDS(HD_envir, file = file.path(dirs$model_output, "HD_envir_MIC.rds"))
 ```
 
 
+FIXED EFFECTS 
+```{r Fixed Effects}
+# get fixed effects of each model in a table
+fixed_effects <- rbind(
+  get_fixed_effects(LD_basic),
+  get_fixed_effects(LD_NB),
+  get_fixed_effects(LD_spat),
+  get_fixed_effects(LD_envir),
+  get_fixed_effects(HD_basic),
+  get_fixed_effects(HD_NB),
+  get_fixed_effects(HD_spat),
+  get_fixed_effects(HD_envir)
+)
+write.csv(fixed_effects, file = file.path(dirs$model_output, "fixed_effects_table.csv"), row.names = F)
+
+# wald tests # P-value for fixed effects
+# laying date
+asreml::wald.asreml(LD_basic, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(LD_NB, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(LD_spat, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(LD_envir, ssType = "conditional", denDF = "numeric")
+
+# hatching date
+asreml::wald.asreml(HD_basic, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(HD_NB, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(HD_spat, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(HD_envir, ssType = "conditional", denDF = "numeric")
+
+# run wald.asreml for each model and save each output as rds file
+run_wald(LD_basic, "LD_basic")
+run_wald(LD_NB, "LD_NB")
+run_wald(LD_spat, "LD_spat")
+run_wald(LD_envir, "LD_envir")
+run_wald(HD_basic, "HD_basic")
+run_wald(HD_NB, "HD_NB")
+run_wald(HD_spat, "HD_spat")
+run_wald(HD_envir, "HD_envir")
+```
+
+
+
+
+
+```
 
