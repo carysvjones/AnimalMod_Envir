@@ -1,0 +1,262 @@
+---
+title: "prep matrices and compare"
+author: "Carys Jones"
+date: '2023-01-31'
+output: html_document
+---
+
+when run models make sure make things factors beforehand
+
+# Dependencies
+```{r}
+box::use(R / dirs[dirs])
+box::use(clean = R / clean_data)
+box::use(mod = R / for_models)
+
+box::use(readr[read_csv])
+box::use(ggplot2[...])
+box::use(dplyr[...])
+box::use(moments)
+box::use(kinship2)
+box::use(sf)
+box::use(tidyr)
+box::use(magrittr[`%>%`])
+box::use(asreml[...])
+box::use(Matrix)
+box::use(brms[...])
+# box::use(bayesplot[...])
+# box::use(tidybayes[...])
+box::use(marginaleffects[...])
+```
+
+
+
+```{r Read in Data}
+gtit_data_sub_nb <-
+  read.csv(file.path(dirs$data_output, "GTIT_data_anim_mod.csv"),
+    na.strings = c("", "NA")
+  ) %>%
+  mutate_at(
+    c("breeding_year", "Mother", "Fbreeding_age_group", "nest.box"),
+    as.factor
+  )
+
+nrow(gtit_data_sub_nb) # 11661
+
+# to run with a subset
+# put dates as range e.g. 2011:2021, or 'ALL' to get all years of data
+breed_data <- gtit_data_sub_nb %>%
+  mod$choose_data(gtit_data_sub_nb, years = "ALL")
+unique(breed_data$breeding_year)
+nrow(breed_data) # 11661
+```
+
+
+```{r Correlation lay and hatch}
+
+#get lag between laying and hatching
+gtit_data_sub_nb <- gtit_data_sub_nb %>%
+  group_by(Mother) %>%
+  mutate(lay_hatch_lag = April.hatch.date - April.lay.date) %>%
+  ungroup()
+
+nrow(subset(gtit_data_sub_nb, !is.na(April.lay.date) &
+  !is.na(April.hatch.date))) # 10893
+
+# correlation coefficient r2
+cor(gtit_data_sub_nb$April.lay.date, gtit_data_sub_nb$April.hatch.date,
+  method = "pearson", use = "complete.obs"
+) #0.952
+summary(lm(April.hatch.date ~ April.lay.date, data = gtit_data_sub_nb))
+# r2 of 0.906
+
+# and median and sd of lag
+median(gtit_data_sub_nb$lay_hatch_lag, na.rm = T) #21
+sd(gtit_data_sub_nb$lay_hatch_lag, na.rm = T) #2.735
+
+```
+
+
+```
+
+
+```{r Prep Ped}
+# pedigree data input
+ped_data <- read.csv(file.path(dirs$data_output, "GTIT-pedigree-for-asreml.csv"), na.strings = c("", "NA"))
+nrow(ped_data) # 15745
+
+# get inverse of matrix
+ped_data_inv <- asreml::ainverse(ped_data)
+
+# create another column to associate with second matrix
+
+breed_data$Mother <- as.factor(breed_data$Mother)
+breed_data$Mother2 <- breed_data$Mother
+```
+
+
+```{r Matrices}
+env_matrix <- readRDS(file.path(dirs$data_output, "env_matrix.rds"))
+
+spatial_matrix <- readRDS(file.path(dirs$data_output, "spatial_matrix.rds"))
+```
+
+
+RUN MODELS ---------------------------------------------------------
+
+
+```{r Run Models}
+# LAYING DATE  ------------------------------------------------------------
+
+# model basic
+LD_basic <- asreml(
+  fixed = April.lay.date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(Mother, ped_data_inv) +
+    ide(Mother, ped_data_inv) +
+    breeding_year,
+  data = breed_data
+)
+saveRDS(LD_basic, file = file.path(dirs$model_output, "LD_basic_output.rds"))
+
+
+# model with NB
+LD_NB <- asreml::asreml(
+  fixed = April.lay.date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(Mother, ped_data_inv) +
+    ide(Mother, ped_data_inv) +
+    breeding_year +
+    nest.box,
+  data = breed_data
+)
+saveRDS(LD_NB, file = file.path(dirs$model_output, "LD_NB_output.rds"))
+
+
+# without distance matrix
+LD_spat <- asreml::asreml(
+  fixed = April.lay.date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(Mother, ped_data_inv) +
+    ide(Mother, ped_data_inv) +
+    vm(Mother2, spatial_matrix) +
+    breeding_year,
+  data = breed_data,
+  workspace = 300e6, pworkspace = 300e6
+)
+saveRDS(LD_spat, file = file.path(dirs$model_output, "LD_spat_MIC.rds"))
+
+
+
+# model with envir sim matrix
+LD_envir <- asreml::asreml(
+  fixed = April.lay.date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(Mother, ped_data_inv) +
+    ide(Mother, ped_data_inv) +
+    vm(Mother2, env_matrix) +
+    breeding_year,
+  data = breed_data,
+  workspace = 300e6, pworkspace = 300e6
+)
+saveRDS(LD_envir, file = file.path(dirs$model_output, "LD_envir_MIC.rds"))
+
+
+
+# HATCHING DATE -----------------------------------------------------------
+
+
+# model basic
+HD_basic <- asreml::asreml(
+  fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(Mother, ped_data_inv) +
+    ide(Mother, ped_data_inv) +
+    breeding_year,
+  data = breed_data
+)
+saveRDS(HD_basic, file = file.path(dirs$model_output, "HD_basic_output.rds"))
+
+
+# model with NB
+HD_NB <- asreml::asreml(
+  fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(Mother, ped_data_inv) +
+    ide(Mother, ped_data_inv) +
+    breeding_year +
+    nest.box,
+  data = breed_data
+)
+saveRDS(HD_NB, file = file.path(dirs$model_output, "HD_NB_output.rds"))
+
+
+# without distance matrix
+HD_spat <- asreml::asreml(
+  fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(Mother, ped_data_inv) +
+    ide(Mother, ped_data_inv) +
+    vm(Mother2, spatial_matrix) +
+    breeding_year,
+  data = breed_data,
+  workspace = 300e6, pworkspace = 300e6,
+  maxiter = 50
+)
+saveRDS(HD_spat, file = file.path(dirs$model_output, "HD_dist_MIC.rds"))
+
+
+
+# model with envir sim matrix
+HD_envir <- asreml::asreml(
+  fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(Mother, ped_data_inv) +
+    ide(Mother, ped_data_inv) +
+    vm(Mother2, env_matrix) +
+    breeding_year,
+  data = breed_data,
+  workspace = 300e6, pworkspace = 300e6,
+  maxiter = 50
+)
+saveRDS(HD_envir, file = file.path(dirs$model_output, "HD_envir_MIC.rds"))
+```
+
+
+FIXED EFFECTS 
+```{r Fixed Effects}
+# get fixed effects of each model in a table
+fixed_effects <- rbind(
+  get_fixed_effects(LD_basic),
+  get_fixed_effects(LD_NB),
+  get_fixed_effects(LD_spat),
+  get_fixed_effects(LD_envir),
+  get_fixed_effects(HD_basic),
+  get_fixed_effects(HD_NB),
+  get_fixed_effects(HD_spat),
+  get_fixed_effects(HD_envir)
+)
+write.csv(fixed_effects, file = file.path(dirs$model_output, "fixed_effects_table.csv"), row.names = F)
+
+# wald tests # P-value for fixed effects
+# laying date
+asreml::wald.asreml(LD_basic, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(LD_NB, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(LD_spat, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(LD_envir, ssType = "conditional", denDF = "numeric")
+
+# hatching date
+asreml::wald.asreml(HD_basic, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(HD_NB, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(HD_spat, ssType = "conditional", denDF = "numeric")
+asreml::wald.asreml(HD_envir, ssType = "conditional", denDF = "numeric")
+
+# run wald.asreml for each model and save each output as rds file
+run_wald(LD_basic, "LD_basic")
+run_wald(LD_NB, "LD_NB")
+run_wald(LD_spat, "LD_spat")
+run_wald(LD_envir, "LD_envir")
+run_wald(HD_basic, "HD_basic")
+run_wald(HD_NB, "HD_NB")
+run_wald(HD_spat, "HD_spat")
+run_wald(HD_envir, "HD_envir")
+```
+
+
+
+
+
+```
+
