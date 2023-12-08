@@ -146,7 +146,10 @@ get_territory_polygons <- function(breeding_data, wood_outline, yr) {
 
   # find areas
   breeding_data_areas <- breeding_data %>%
-    dplyr::filter(if_any(any_of(c("year", "breeding_year")), ~ . == yr)) %>%
+    dplyr::filter(dplyr::if_any(
+      tidyselect::any_of(c("year", "breeding_year")),
+      ~ . == yr
+    )) %>%
     # get voronoi polygons
     sf::st_union() %>%
     sf::st_voronoi(box) %>%
