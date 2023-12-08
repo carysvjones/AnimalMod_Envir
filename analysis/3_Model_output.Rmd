@@ -634,58 +634,7 @@ ggsave(
 
 ```{r breeding dispersal}
 
-gtit_data_sub_nb <- read.csv(file.path(dirs$data_output, 'GTIT_data_anim_mod.csv'), na.strings=c("", "NA"))
 
-
-data_doubles <- gtit_data_sub_nb %>%
-  group_by(Mother) %>%
-  filter(n() > 1) %>%
-  ungroup()
-nrow(data_doubles) #6571
-data_doubles_summ <- data_doubles %>%
-  group_by(Mother) %>%
-  summarise(num = length(Mother))
-#table of number of breeding attempts
-table(data_doubles_summ$num)
-
-#distance between breeding attempts 
-dists <- data_doubles %>%
-    rename(year = breeding_year) %>%
-    group_by(Mother) %>%
-    mutate(
-        x2 = dplyr::lead(x),
-        y2 = dplyr::lead(y),
-        year2 = dplyr::lead(year),
-        box2 = dplyr::lead(nest.box)
-    ) %>%
-    mutate(dist = sqrt((x2 - x)^2 + (y2 - y)^2)) %>%
-    ungroup() %>%
-    select(Mother, year, year2, nest.box, box2, dist)
-
-#plot
-breed_disp <- 
-  ggplot(subset(dists, !is.na(dist)), aes(x = dist)) + 
-  geom_histogram(fill = '#77AADE', colour = '#2F5597') + 
-  geom_vline(xintercept = median(dists$dist, na.rm = T), 
-             colour = '#2F5597',
-             linewidth = 1,
-             linetype = 'dashed') + 
-  scale_x_continuous(breaks = seq(0, 2700, by = 500)) + 
-  xlab('Breeding dispersal distance (m)') + ylab('Count') + 
-  output_plot_theme
-breed_disp
-
-ggsave(
-  filename = "./plots/breeding_dispersal_distance.png",
-  plot = breed_disp,
-  scale = 1,
-  width = 15,
-  height = 10,
-  units = "cm",
-  dpi = 350,
-  limitsize = FALSE,
-  bg = "transparent"
-)
 
 
 ```
