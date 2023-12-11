@@ -5,7 +5,7 @@
 # DEPENDENCIES ─────────────────────────────────────────────────────────────── #
 
 
-box::use(mods = R / for_models)
+box::use(mod = .. / R / for_models)
 
 box::use(magrittr[`%>%`])
 box::use(dplyr)
@@ -142,7 +142,7 @@ bbox_polygon_G <- function(breeding_data) {
 
 get_territory_polygons <- function(breeding_data, wood_outline, yr) {
   # create box
-  box <- sf::st_sfc(mods$bbox_polygon_G(breeding_data))
+  box <- sf::st_sfc(mod$bbox_polygon_G(breeding_data))
 
   # find areas
   breeding_data_areas <- breeding_data %>%
