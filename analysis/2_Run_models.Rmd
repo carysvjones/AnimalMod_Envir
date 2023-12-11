@@ -37,11 +37,11 @@ gtit_data_sub_nb <-
     na.strings = c("", "NA")
   ) %>%
   mutate_at(
-    c("breeding_year", "Mother", "Fbreeding_age_group", "nest.box"),
+    c("breeding_year", "mother", "Fbreeding_age_group", "nest.box"),
     as.factor
   )
 
-nrow(gtit_data_sub_nb) # 11661
+nrow(gtit_data_sub_nb) # 11661 #11658
 
 # to run with a subset
 # put dates as range e.g. 2011:2021, or 'ALL' to get all years of data
@@ -53,30 +53,25 @@ nrow(breed_data) # 11661
 
 
 ```{r Correlation lay and hatch}
-
-#get lag between laying and hatching
+# get lag between laying and hatching
 gtit_data_sub_nb <- gtit_data_sub_nb %>%
-  group_by(Mother) %>%
-  mutate(lay_hatch_lag = April.hatch.date - April.lay.date) %>%
+  group_by(mother) %>%
+  mutate(lay_hatch_lag = april_hatch_date - april_lay_date) %>%
   ungroup()
 
-nrow(subset(gtit_data_sub_nb, !is.na(April.lay.date) &
-  !is.na(April.hatch.date))) # 10893
+nrow(subset(gtit_data_sub_nb, !is.na(april_lay_date) &
+  !is.na(april_hatch_date))) # 10893
 
 # correlation coefficient r2
-cor(gtit_data_sub_nb$April.lay.date, gtit_data_sub_nb$April.hatch.date,
+cor(gtit_data_sub_nb$april_lay_date, gtit_data_sub_nb$april_hatch_date,
   method = "pearson", use = "complete.obs"
-) #0.952
-summary(lm(April.hatch.date ~ April.lay.date, data = gtit_data_sub_nb))
+) # 0.952
+summary(lm(april_hatch_date ~ april_lay_date, data = gtit_data_sub_nb))
 # r2 of 0.906
 
 # and median and sd of lag
-median(gtit_data_sub_nb$lay_hatch_lag, na.rm = T) #21
-sd(gtit_data_sub_nb$lay_hatch_lag, na.rm = T) #2.735
-
-```
-
-
+median(gtit_data_sub_nb$lay_hatch_lag, na.rm = T) # 21
+sd(gtit_data_sub_nb$lay_hatch_lag, na.rm = T) # 2.735
 ```
 
 
@@ -86,12 +81,12 @@ ped_data <- read.csv(file.path(dirs$data_output, "GTIT-pedigree-for-asreml.csv")
 nrow(ped_data) # 15745
 
 # get inverse of matrix
-ped_data_inv <- asreml::ainverse(ped_data)
+ped_data_inv <- asreml::ainverse(ped_gtit_final)
 
 # create another column to associate with second matrix
 
-breed_data$Mother <- as.factor(breed_data$Mother)
-breed_data$Mother2 <- breed_data$Mother
+breed_data$mother <- as.factor(breed_data$mother)
+breed_data$mother2 <- breed_data$mother
 ```
 
 
@@ -110,9 +105,9 @@ RUN MODELS ---------------------------------------------------------
 
 # model basic
 LD_basic <- asreml(
-  fixed = April.lay.date ~ 1 + Fbreeding_age_group,
-  random = ~ vm(Mother, ped_data_inv) +
-    ide(Mother, ped_data_inv) +
+  fixed = april_lay_date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(mother, ped_data_inv) +
+    ide(mother, ped_data_inv) +
     breeding_year,
   data = breed_data
 )
@@ -121,9 +116,9 @@ saveRDS(LD_basic, file = file.path(dirs$model_output, "LD_basic_output.rds"))
 
 # model with NB
 LD_NB <- asreml::asreml(
-  fixed = April.lay.date ~ 1 + Fbreeding_age_group,
-  random = ~ vm(Mother, ped_data_inv) +
-    ide(Mother, ped_data_inv) +
+  fixed = april_lay_date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(mother, ped_data_inv) +
+    ide(mother, ped_data_inv) +
     breeding_year +
     nest.box,
   data = breed_data
@@ -133,10 +128,10 @@ saveRDS(LD_NB, file = file.path(dirs$model_output, "LD_NB_output.rds"))
 
 # without distance matrix
 LD_spat <- asreml::asreml(
-  fixed = April.lay.date ~ 1 + Fbreeding_age_group,
-  random = ~ vm(Mother, ped_data_inv) +
-    ide(Mother, ped_data_inv) +
-    vm(Mother2, spatial_matrix) +
+  fixed = april_lay_date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(mother, ped_data_inv) +
+    ide(mother, ped_data_inv) +
+    vm(mother2, spatial_matrix) +
     breeding_year,
   data = breed_data,
   workspace = 300e6, pworkspace = 300e6
@@ -147,10 +142,10 @@ saveRDS(LD_spat, file = file.path(dirs$model_output, "LD_spat_MIC.rds"))
 
 # model with envir sim matrix
 LD_envir <- asreml::asreml(
-  fixed = April.lay.date ~ 1 + Fbreeding_age_group,
-  random = ~ vm(Mother, ped_data_inv) +
-    ide(Mother, ped_data_inv) +
-    vm(Mother2, env_matrix) +
+  fixed = april_lay_date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(mother, ped_data_inv) +
+    ide(mother, ped_data_inv) +
+    vm(mother2, env_matrix) +
     breeding_year,
   data = breed_data,
   workspace = 300e6, pworkspace = 300e6
@@ -164,9 +159,9 @@ saveRDS(LD_envir, file = file.path(dirs$model_output, "LD_envir_MIC.rds"))
 
 # model basic
 HD_basic <- asreml::asreml(
-  fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
-  random = ~ vm(Mother, ped_data_inv) +
-    ide(Mother, ped_data_inv) +
+  fixed = april_hatch_date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(mother, ped_data_inv) +
+    ide(mother, ped_data_inv) +
     breeding_year,
   data = breed_data
 )
@@ -175,9 +170,9 @@ saveRDS(HD_basic, file = file.path(dirs$model_output, "HD_basic_output.rds"))
 
 # model with NB
 HD_NB <- asreml::asreml(
-  fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
-  random = ~ vm(Mother, ped_data_inv) +
-    ide(Mother, ped_data_inv) +
+  fixed = april_hatch_date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(mother, ped_data_inv) +
+    ide(mother, ped_data_inv) +
     breeding_year +
     nest.box,
   data = breed_data
@@ -187,10 +182,10 @@ saveRDS(HD_NB, file = file.path(dirs$model_output, "HD_NB_output.rds"))
 
 # without distance matrix
 HD_spat <- asreml::asreml(
-  fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
-  random = ~ vm(Mother, ped_data_inv) +
-    ide(Mother, ped_data_inv) +
-    vm(Mother2, spatial_matrix) +
+  fixed = april_hatch_date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(mother, ped_data_inv) +
+    ide(mother, ped_data_inv) +
+    vm(mother2, spatial_matrix) +
     breeding_year,
   data = breed_data,
   workspace = 300e6, pworkspace = 300e6,
@@ -202,10 +197,10 @@ saveRDS(HD_spat, file = file.path(dirs$model_output, "HD_dist_MIC.rds"))
 
 # model with envir sim matrix
 HD_envir <- asreml::asreml(
-  fixed = April.hatch.date ~ 1 + Fbreeding_age_group,
-  random = ~ vm(Mother, ped_data_inv) +
-    ide(Mother, ped_data_inv) +
-    vm(Mother2, env_matrix) +
+  fixed = april_hatch_date ~ 1 + Fbreeding_age_group,
+  random = ~ vm(mother, ped_data_inv) +
+    ide(mother, ped_data_inv) +
+    vm(mother2, env_matrix) +
     breeding_year,
   data = breed_data,
   workspace = 300e6, pworkspace = 300e6,
