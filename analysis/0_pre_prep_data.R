@@ -3,7 +3,7 @@
 
 box::use(R / dirs[dirs])
 box::use(clean = R / clean_data)
-box::use(mods = R / for_models)
+box::use(mod = R / for_models)
 
 box::use(ggplot2[...])
 box::use(dplyr[...])
@@ -54,7 +54,7 @@ nrow(breed) # 41987
 
 # clean dataset
 breed <- clean$clean_breeding_data(breed)
-nrow(breed) # 40254 #40248
+nrow(breed) # 40248
 
 write.csv(breed, file = file.path(
   dirs$data_output,
@@ -112,12 +112,13 @@ ring2_clean <- ring2 %>%
   clean$clean_ringing_data_2(.) %>%
   mutate(pnum = paste0(date, "1", site)) %>%
   # rename columns
-  rename(bto_ring = ring,
-                bto_species_code = spec,
-                yr = date,
-                nb = site,
-                retrap = rtype,
-                location = place
+  rename(
+    bto_ring = ring,
+    bto_species_code = spec,
+    yr = date,
+    nb = site,
+    retrap = rtype,
+    location = place
   ) %>%
   # keep only selected columns
   dplyr::select(pnum, age, sex, bto_species_code, bto_ring, yr, nb, retrap)
@@ -167,7 +168,7 @@ wood_outline <- sf::st_read(file.path(dirs$data_raw, "/maps/perimeter poly with 
   sf::st_transform(27700)
 
 # need breeding data with nest box locations
-nrow(breed) # 40249
+nrow(breed) # 40248
 
 # sort breeding data
 breeding_data <- breed %>%
@@ -175,21 +176,17 @@ breeding_data <- breed %>%
   dplyr::filter(species == "g") %>%
   # convert to spatial object
   sf::st_as_sf(coords = c("x", "y"), remove = F, crs = 27700)
-nrow(breeding_data) # 17809
+nrow(breeding_data) # 17808
 
 # loop to get territory size for individuals within each year
-
-# NEED TO SAVE AND CLOSE AND REOPEN - WASNT GETTING FUNCTION INSIDE FUNCTION***!SECTION
-
-
 GTIT_allyrs_area <- NULL
 for (yr in unique(breeding_data$year)) {
-  territories_G <- mods$get_territory_polygons(breeding_data, wood_outline, yr)
+  territories_G <- mod$get_territory_polygons(breeding_data, wood_outline, yr)
   GTIT_allyrs_area <- rbind(GTIT_allyrs_area, territories_G)
 }
 
 summary(GTIT_allyrs_area$area_polygon)
-nrow(GTIT_allyrs_area) # 17809
+nrow(GTIT_allyrs_area) # 17808
 
 # select just some columns and drop geometyr
 territory <- GTIT_allyrs_area %>%
@@ -202,7 +199,7 @@ territory <- GTIT_allyrs_area %>%
 box_tree_terr <- merge(box_tree, territory, by.x = "box", by.y = "nest_box", all.y = T) %>%
   dplyr::mutate(area_polygon_sqrt = sqrt(area_polygon))
 
-nrow(box_tree_terr) # 17809
+nrow(box_tree_terr) # 17808
 
 # save
 write.csv(box_tree_terr, file = file.path(dirs$data_output, "Habitat_data_nestboxes.csv"), row.names = F)
