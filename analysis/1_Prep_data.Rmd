@@ -38,7 +38,7 @@ breed <- read.csv(file.path(
   dirs$data_output,
   "LT_breeding_data_greti_bluti_1960_2022.csv"
 ), na.strings = c("", "NA"))
-nrow(breed) # 40254
+nrow(breed) # 40248
 
 # subset to just keep great tits
 breed_gtit <- breed %>%
@@ -91,7 +91,7 @@ nrow(breed_gtit) # 17996
 nrow(ring_gtit) # 91645
 
 # summaries
-nrow(breed_ring_gtit) # 94006
+nrow(breed_ring_gtit) # 94005
 length(unique(breed_ring_gtit$bto_ring)) # 91646
 length(unique(breed_ring_gtit$mother)) # 8531
 length(unique(breed_ring_gtit$father)) # 7215
@@ -130,11 +130,10 @@ full_ped <- rbind(miss_dam_df, miss_sire_df, ped_gtit_short) %>%
   dplyr::filter(!is.na(id))
 nrow(full_ped) # 99239
 
-ped_gtit_short_ext_fix <- nadiv::prepPed(ped_gtit_short)
 
 # this is the overall huge pedigree!
-head(ped_gtit_short_ext_fix)
-nrow(ped_gtit_short_ext_fix) # 98519
+head(full_ped)
+nrow(full_ped) # 99239
 
 # so can save this here...
 write.csv(ped_gtit_short_ext_fix,
@@ -165,10 +164,6 @@ write.csv(ped_gtit_final, file = file.path(dirs$data_output, "GTIT-pedigree-for-
 
 
 
-nrow(ped_data) # 15745
-nrow(ped_gtit_final) # 15024
-
-
 missing <- ped_data[!(ped_data$id %in% ped_gtit_final$id), ]
 nrow(missing) # 721
 
@@ -189,37 +184,37 @@ nrow(breed_gtit) # 18000
 
 # get rid of those with experiment codes, no LD and no mother
 breed_gtit_noNA <- breed_gtit %>%
-  dplyr::filter(is.na(breed_gtit$Experiment.codes) &
-    !is.na(breed_gtit$April.lay.date))
+  dplyr::filter(is.na(breed_gtit$experiment_codes) &
+    !is.na(breed_gtit$april_lay_date))
 
-nrow(breed_gtit_noNA) # 15440
+nrow(breed_gtit_noNA) # 15436
 # how many have no mother
-nrow(subset(breed_gtit_noNA, is.na(mother))) # 3289
-nrow(subset(breed_gtit_noNA, is.na(father))) # 5791
+nrow(subset(breed_gtit_noNA, is.na(mother))) # 3288
+nrow(subset(breed_gtit_noNA, is.na(father))) # 5789
 
 # have both parents
-nrow(subset(breed_gtit_noNA, !is.na(mother) & !is.na(father))) # 10419
+nrow(subset(breed_gtit_noNA, !is.na(mother) & !is.na(father))) # 9260
 # have just mother
-nrow(subset(breed_gtit_noNA, !is.na(mother))) # 13723
-nrow(subset(breed_gtit_noNA, !is.na(mother) & is.na(father))) # 3304 have no mother but have father
+nrow(subset(breed_gtit_noNA, !is.na(mother))) # 12148
+nrow(subset(breed_gtit_noNA, !is.na(mother) & is.na(father))) # 2888 have no mother but have father
 # have jsut father
-nrow(subset(breed_gtit_noNA, !is.na(father))) # 10832
-nrow(subset(breed_gtit_noNA, !is.na(father) & is.na(mother))) # 413 have no father but have mother
+nrow(subset(breed_gtit_noNA, !is.na(father))) # 9647
+nrow(subset(breed_gtit_noNA, !is.na(father) & is.na(mother))) # 387 have no father but have mother
 
 
 breed_gtit_noNA <- breed_gtit_noNA %>%
   dplyr::filter(!is.na(mother)) %>%
   dplyr::select(
-    "year", "pnum", "Section", "April.lay.date", "April.hatch.date",
-    "Clutch.size", "Num.fledglings", "father", "mother", "nest_box"
+    "year", "pnum", "section", "april_lay_date", "april_hatch_date",
+    "clutch_size", "num_fledglings", "father", "mother", "nest_box"
   )
-length(unique(breed_gtit_noNA$mother)) # 7792
+length(unique(breed_gtit_noNA$mother)) # 7791
 length(unique(breed_gtit_noNA$father)) # 6342
-length(unique(breed_gtit_noNA$pnum)) # 12151
-summary(breed_gtit_noNA$April.lay.date) #-5 to 83
+length(unique(breed_gtit_noNA$pnum)) # 12148
+summary(breed_gtit_noNA$april_lay_date) #-5 to 83
 
 
-nrow(breed_gtit_noNA) # 12151
+nrow(breed_gtit_noNA) # 12148
 
 
 # ADD AGE  ----------------------------------------------------------------
@@ -227,7 +222,9 @@ nrow(breed_gtit_noNA) # 12151
 ring <- read.csv(file.path(dirs$data_output, "ebmp_database_ringing_record_export_GT&BT_all.csv"), na.strings = c("", "NA"))
 
 breed_gtit_noNA_age <- clean$get_age(breed_gtit_noNA, ring)
-table(breed_gtit_noNA_age$Fem_breed_age)
+table(breed_gtit_noNA_age$fem_breed_age)
+#    1    2    3    4    5    6    7    8    9
+# 6558 3191 1421  622  260   67   23    5    1
 
 
 # GET RID mother & father KNOWN 2ND BROODS & LATE BROODS ------------------
@@ -238,14 +235,16 @@ breed_gtit_noNA_age_sub <- clean$remove_late_broods(breed_gtit_noNA_age,
   mothers = T, fathers = T,
   late = F, late_persection = T
 )
-nrow(breed_gtit_noNA_age_sub) # 11746
+nrow(breed_gtit_noNA_age_sub) # 11743
 
 # rename year as breeding year - make new column of yearling and adult
 breed_gtit_noNA_age_sub <- breed_gtit_noNA_age_sub %>%
   dplyr::rename("breeding_year" = "year") %>%
-  dplyr::mutate(Fbreeding_age_group = ifelse(Fem_breed_age == 1, "Yearling", "Adult"))
-summary(as.factor(breed_gtit_noNA_age_sub$Fbreeding_age_group)) # Adult 5428, Yearling 6444
-summary(as.factor(breed_gtit_noNA_age_sub$Fem_breed_age))
+  dplyr::mutate(Fbreeding_age_group = ifelse(fem_breed_age == 1,
+    "Yearling", "Adult"
+  ))
+summary(as.factor(breed_gtit_noNA_age_sub$Fbreeding_age_group)) # Adult 5368, Yearling 6375
+summary(as.factor(breed_gtit_noNA_age_sub$fem_breed_age))
 ```
 
 
@@ -265,7 +264,7 @@ habitat_data <- read.csv(file.path(
 
 # now merge with breeding data!
 gtit_data_sub_nb <- merge(breed_gtit_noNA_age_sub, habitat_data, by = "pnum")
-nrow(gtit_data_sub_nb) # 11786 - only a few hundred missing from before
+nrow(gtit_data_sub_nb) # 11658 - only a few hundred missing from before
 
 
 
@@ -274,78 +273,12 @@ nrow(gtit_data_sub_nb) # 11786 - only a few hundred missing from before
 # FINDING MIDPOINT IN SPACE FOR INDIVIDUALS -------------------------------
 
 # data set of all that have nest box
-nrow(gtit_data_sub_nb) # 11786
-length(unique(gtit_data_sub_nb$mother)) # 7732
+nrow(gtit_data_sub_nb) # 11658
+length(unique(gtit_data_sub_nb$mother)) # 7679
 
-summary(gtit_data_sub_nb$April.lay.date) #-5 to 78, median = 25
-summary(gtit_data_sub_nb$April.hatch.date) # 789 NAs
-summary(gtit_data_sub_nb$Clutch.size) # 49 NAs
-
-# if individuals have multiple breeding attempts
-# need to find midpoint location of nest boxes
-# so can use that to make matrix of distance between all individuals
-
-# look at how many use >1 box
-gtit_data_sub_nb_multisumm <- gtit_data_sub_nb %>%
-  dplyr::group_by(., mother) %>%
-  dplyr::summarise(.,
-    nest_boxes = length(unique(nest_box)),
-    breed_attempts = length(nest_box)
-  )
-hist(gtit_data_sub_nb_multisumm$nest_boxes)
-hist(gtit_data_sub_nb_multisumm$breed_attempts)
-
-
-# plot these just out of interest to see how far boxes are away from eachother?
-### WORK THIS OUT
-# just keep breeding attempts for mothers that moved boxes
-
-# subset 3 birds
-multi_box <- gtit_data_sub_nb %>%
-  dplyr::group_by(., mother) %>%
-  dplyr::filter(length((nest_box)) > 1) %>%
-  dplyr::mutate(
-    x2 = dplyr::lead(x),
-    y2 = dplyr::lead(y),
-    edge2 = dplyr::lead(edge.EDI.),
-    alt2 = dplyr::lead(altitude.m.),
-    north2 = dplyr::lead(northness),
-    trees2 = dplyr::lead(No_trees_75m),
-    area2 = dplyr::lead(area_polygon_sqrt),
-    nest_box2 = dplyr::lead(nest_box),
-    breeding_year2 = dplyr::lead(breeding_year)
-  ) %>%
-  dplyr::mutate(
-    dist = sqrt((x2 - x)^2 + (y2 - y)^2),
-    edge_diff = abs(edge2 - edge.EDI.),
-    alt_diff = abs(alt2 - altitude.m.),
-    north_diff = abs(north2 - northness),
-    tree_diff = abs(trees2 - No_trees_75m),
-    area_diff = abs(area2 - area_polygon_sqrt)
-  ) %>%
-  dplyr::ungroup() %>%
-  dplyr::select(
-    mother, breeding_year, breeding_year2, x, y, x2, y2, nest_box, nest_box2, dist,
-    edge_diff, alt_diff, north_diff, tree_diff, area_diff
-  )
-
-
-# get rid of distance NA's and 0 distance
-nrow(multi_box) # 6683
-multi_box <- multi_box %>%
-  dplyr::filter(!is.na(dist))
-nrow(multi_box) # 4054
-
-summary(multi_box)
-length(unique(multi_box$mother)) # 2629
-length(unique(multi_box$mother)) / length(unique(gtit_data_sub_nb$mother)) # 34% mothers breed in multi years
-
-length(unique(subset(multi_box, dist > 0)$mother)) / length(unique(gtit_data_sub_nb$mother)) # 27.9% breed in diff boxes
-
-# DISTANCES
-median(multi_box$dist) # 60.85m
-mean(multi_box$dist) # 93.1m
-range(multi_box$dist) # 0 - 2647.5m
+summary(gtit_data_sub_nb$april_lay_date) #-5 to 60, median = 25
+summary(gtit_data_sub_nb$april_hatch_date) # 768 NAs
+summary(gtit_data_sub_nb$clutch_size) # 42 NAs
 
 
 
@@ -359,19 +292,17 @@ gtit_data_sub_nb <- gtit_data_sub_nb %>%
   dplyr::mutate(
     x_mean = mean(x),
     y_mean = mean(y),
-    alt_mean = mean(altitude.m., na.rm = T),
+    alt_mean = mean(altitude_m, na.rm = T),
     northness_mean = mean(northness, na.rm = T),
-    edge_mean = mean(edge.EDI., na.rm = T),
-    No_trees_75m_mean = mean(No_trees_75m, na.rm = T),
+    edge_mean = mean(edge_edi, na.rm = T),
+    no_trees_75m_mean = mean(no_trees_75m, na.rm = T),
     area_polygon_sqrt_mean = mean(area_polygon_sqrt, na.rm = T)
   ) %>%
   dplyr::ungroup()
 
 
-
-
 # output data
-write.csv(gtit_data_sub_nb, file = file.path(dirs$data_output, "GTIT_data_anim_mod.csv"), row.names = F)
+write.csv(gtit_data_sub_nb, file = file.path(dirs$data_output, "GTIT_data_anim_mod2.csv"), row.names = F)
 ```
 
 
