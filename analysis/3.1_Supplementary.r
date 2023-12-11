@@ -1,7 +1,6 @@
-
 box::use(.. / R / dirs[dirs])
-box::use(clean = ../ R / clean_data)
-box::use(mods = ../ R / for_models)
+box::use(clean = .. / R / clean_data)
+box::use(mods = .. / R / for_models)
 
 box::use(readr[read_csv])
 box::use(ggplot2)
@@ -21,46 +20,54 @@ box::use(magrittr[`%>%`])
 # SUPPLEMENTARY
 
 gtit_data_sub_nb <- read.csv(file.path(
-    dirs$data_output,
-    "GTIT_data_anim_mod.csv"
+  dirs$data_output,
+  "GTIT_data_anim_mod.csv"
 ), na.strings = c("", "NA"))
 
 
 data_doubles <- gtit_data_sub_nb %>%
-  group_by(Mother) %>%
+  group_by(mother) %>%
   filter(n() > 1) %>%
   ungroup()
-nrow(data_doubles) #6571
+nrow(data_doubles) # 6568
 data_doubles_summ <- data_doubles %>%
-  group_by(Mother) %>%
-  summarise(num = length(Mother))
-#table of number of breeding attempts
+  group_by(mother) %>%
+  summarise(num = length(mother))
+# table of number of breeding attempts
 table(data_doubles_summ$num)
 
-#distance between breeding attempts
+# distance between breeding attempts
 dists <- data_doubles %>%
-    rename(year = breeding_year) %>%
-    group_by(Mother) %>%
-    mutate(
-        x2 = dplyr::lead(x),
-        y2 = dplyr::lead(y),
-        year2 = dplyr::lead(year),
-        box2 = dplyr::lead(nest.box)
-    ) %>%
-    mutate(dist = sqrt((x2 - x)^2 + (y2 - y)^2)) %>%
-    ungroup() %>%
-    select(Mother, year, year2, nest.box, box2, dist)
+  rename(year = breeding_year) %>%
+  group_by(mother) %>%
+  mutate(
+    x2 = dplyr::lead(x),
+    y2 = dplyr::lead(y),
+    year2 = dplyr::lead(year),
+    box2 = dplyr::lead(nest_box)
+  ) %>%
+  mutate(dist = sqrt((x2 - x)^2 + (y2 - y)^2)) %>%
+  ungroup() %>%
+  select(mother, year, year2, nest_box, box2, dist)
 
-#plot
+# DISTANCES
+median(dists$dist, na.rm = T) # 60.75m
+mean(dists$dist, na.rm = T) # 93.30m
+range(dists$dist, na.rm = T) # 0 - 2647.5m
+
+# plot
 breed_disp <-
   ggplot(subset(dists, !is.na(dist)), aes(x = dist)) +
-  geom_histogram(fill = '#77AADE', colour = '#2F5597') +
-  geom_vline(xintercept = median(dists$dist, na.rm = T),
-             colour = '#2F5597',
-             linewidth = 1,
-             linetype = 'dashed') +
+  geom_histogram(fill = "#77AADE", colour = "#2F5597") +
+  geom_vline(
+    xintercept = median(dists$dist, na.rm = T),
+    colour = "#2F5597",
+    linewidth = 1,
+    linetype = "dashed"
+  ) +
   scale_x_continuous(breaks = seq(0, 2700, by = 500)) +
-  xlab('Breeding dispersal distance (m)') + ylab('Count') +
+  xlab("Breeding dispersal distance (m)") +
+  ylab("Count") +
   output_plot_theme
 breed_disp
 
@@ -82,7 +89,7 @@ ggsave(
 
 # MATRICES -----------------------------------------------------------
 
-#correlation of environmental factors
+# correlation of environmental factors
 habitat_data <- read.csv(file.path(
   dirs$data_output,
   "Habitat_data_nestboxes.csv"
@@ -91,12 +98,9 @@ habitat_data <- read.csv(file.path(
 
 # get one row for each box
 habitat_data_uniq <- habitat_data %>%
-    distinct(box, .keep_all = TRUE)
+  distinct(box, .keep_all = TRUE)
 
-#scale and centre altitude_m, northness, edge_edi, no_trees_75m
-
-
-
+# scale and centre altitude_m, northness, edge_edi, no_trees_75m
 
 
 
@@ -137,6 +141,7 @@ mantel_matrices <- vegan::mantel(
   permutations = 1,
   na.rm = TRUE
 )
+
 
 
 # Make to table -----------------------------------------------------------
