@@ -75,15 +75,15 @@ OUTPUT
 
 # Results LD --------------------------------------------------------------
 
-LD_basic <- readRDS(file.path(dirs$model_output, 'LD_basic_MIC.rds'))
-LD_NB <- readRDS(file.path(dirs$model_output, 'LD_NB_MIC.rds'))
-LD_spat <- readRDS(file.path(dirs$model_output, 'LD_spat_MIC.rds'))
-LD_envir <- readRDS(file.path(dirs$model_output, 'LD_envir_MIC.rds'))
+LD_basic <- readRDS(file.path(dirs$model_output, 'LD_basic_output.rds'))
+LD_NB <- readRDS(file.path(dirs$model_output, 'LD_NB_output.rds'))
+LD_spat <- readRDS(file.path(dirs$model_output, 'LD_spat_output.rds'))
+LD_envir <- readRDS(file.path(dirs$model_output, 'LD_envir_output.rds'))
 
-HD_basic <- readRDS(file.path(dirs$model_output, 'HD_basic_MIC.rds'))
-HD_NB <- readRDS(file.path(dirs$model_output, 'HD_NB_MIC.rds'))
-HD_spat <- readRDS(file.path(dirs$model_output, 'HD_dist_MIC.rds'))
-HD_envir <- readRDS(file.path(dirs$model_output, 'HD_envir_MIC.rds'))
+HD_basic <- readRDS(file.path(dirs$model_output, 'HD_basic_output.rds'))
+HD_NB <- readRDS(file.path(dirs$model_output, 'HD_NB_output.rds'))
+HD_spat <- readRDS(file.path(dirs$model_output, 'HD_dist_output.rds'))
+HD_envir <- readRDS(file.path(dirs$model_output, 'HD_envir_output.rds'))
 
 
 
@@ -116,22 +116,6 @@ LD_varcomps <- rbind(mod$get_var_comps(model = LD_basic),
   
 LD_varcomps
 
-
-#how do they change between models
-#get table with rel estimate for each model for var comp
-#then create columns with differences 
-#for NB, and matrices are positive cause not there at all in model 1                                
-LD_varcomps_changes <- LD_varcomps %>%
-  dplyr::select(name, Rel_Est, model_name) %>%
-  tidyr::pivot_wider(id_cols = name, names_from = model_name, values_from = Rel_Est) %>%
-  dplyr::mutate(LD_basic_temp = ifelse(is.na(LD_basic), 0, LD_basic),
-                LD_NB_diff = (LD_NB - LD_basic_temp) * 100,
-                LD_spat_diff = (LD_spat - LD_basic_temp) * 100,
-                LD_envir_diff = (LD_envir - LD_basic_temp) * 100,
-                LD_basic = LD_basic * 100) %>%
-  dplyr::select(name, LD_basic, LD_NB_diff, LD_spat_diff, LD_envir_diff)
-
-
 #heritability
 #make new little table - Vp, Vp_year, h2, h2_year
 
@@ -141,28 +125,27 @@ LD_herits <- rbind(mod$get_herit_asreml(LD_varcomps, LD_basic, "LD_basic"),
                    mod$get_herit_asreml(LD_varcomps, LD_envir, "LD_envir")) %>%
   dplyr::mutate(Rel_Est = NA,
                 Rel_SE = NA,
-                model_name = c(rep('LD_basic', 4),
-                               rep('LD_NB', 4),
-                               rep('LD_spat', 4),
-                               rep('LD_envir', 4)))
+                model_name = c(rep('LD_basic', 2),
+                               rep('LD_NB', 2),
+                               rep('LD_spat', 2),
+                               rep('LD_envir', 2)))
 
 
 head(LD_varcomps)
 head(LD_herits)
 
 #bind together and to 3 dp - combine all using dplyr
-
 LD_all <- rbind(LD_varcomps, LD_herits) %>%
   mutate_at(vars(Est, SE, Rel_Est, Rel_SE),
-              ~ if_else(is.na(.), "",
+              ~ if_else(is.na(.), "-",
                         format(round(., 3), nsmall = 3)))
 #order them by model
 order <- c('LD_basic', 'LD_NB', 'LD_spat', 'LD_env')
 #merge with brackets
 LD_all_merge <- LD_all %>%
   dplyr::arrange(factor(model_name, levels = order)) %>%
-  mutate(Est = ifelse(SE != '', paste(Est, ' (', SE,')', sep = ''), Est),
-         Rel_Est = ifelse(Rel_SE != '', paste(Rel_Est, ' (', Rel_SE, ')', sep = ''), Rel_Est)) %>%
+  mutate(Est = ifelse(SE != '-', paste(Est, ' (', SE,')', sep = ''), Est),
+         Rel_Est = ifelse(Rel_SE != '-', paste(Rel_Est, ' (', Rel_SE, ')', sep = ''), Rel_Est)) %>%
   select(-c(SE, Rel_SE))
 #this is table use in results!
 
@@ -190,10 +173,10 @@ HD_herits <- rbind(mod$get_herit_asreml(HD_varcomps, HD_basic, 'HD_basic'),
                    mod$get_herit_asreml(HD_varcomps, HD_envir, 'HD_envir')) %>%
   dplyr::mutate(Rel_Est = NA,
                 Rel_SE = NA,
-                model_name = c(rep('HD_basic', 4),
-                               rep('HD_NB', 4),
-                               rep('HD_spat', 4),
-                               rep('HD_envir', 4)))
+                model_name = c(rep('HD_basic', 2),
+                               rep('HD_NB', 2),
+                               rep('HD_spat', 2),
+                               rep('HD_envir', 2)))
 
 
 head(HD_varcomps)
@@ -203,15 +186,15 @@ head(HD_herits)
 
 HD_all <- rbind(HD_varcomps, HD_herits) %>%
     mutate_at(vars(Est, SE, Rel_Est, Rel_SE),
-              ~ if_else(is.na(.), '',
+              ~ if_else(is.na(.), '-',
                         format(round(., 3), nsmall = 3)))
 #order them by model
 order <- c('HD_basic', 'HD_NB', 'HD_spat', 'HD_env')
 #merge with brackets
 HD_all_merge <- HD_all %>%
   dplyr::arrange(factor(model_name, levels = order)) %>%
-  mutate(Est = ifelse(SE != '', paste(Est, ' (', SE,')', sep = ''), Est),
-         Rel_Est = ifelse(Rel_SE != '', paste(Rel_Est, ' (', Rel_SE, ')', sep = ''), Rel_Est)) %>%
+  mutate(Est = ifelse(SE != '-', paste(Est, ' (', SE,')', sep = ''), Est),
+         Rel_Est = ifelse(Rel_SE != '-', paste(Rel_Est, ' (', Rel_SE, ')', sep = ''), Rel_Est)) %>%
   select(-c(SE, Rel_SE))
 #this is table use in results!
 
@@ -283,16 +266,6 @@ ggsave(
 LD_herits_sub <- LD_herits %>%
   dplyr::filter(name == 'h2_yr')
 
-# LD_herits_sub$SE <- c(0.05812232, 0.05441957, 0.02618386, 0.02379282)
-#heritability - within-year
-#work out how to get the SE that this gets?
-
-# LD_basic.h2 <- asreml::vpredict(LD_basic, LD_basic.h2 ~ V2 / (V2 + V3 + V4))
-# LD_NB.h2 <- asreml::vpredict(LD_NB, LD_NB.h2 ~ V3 / (V2 + V3 + V4 + V5))
-# LD_dist.h2 <- asreml::vpredict(LD_spat, LD_dist.h2 ~ V3 / (V2 + V3 + V4 + V5))
-# LD_envir.h2 <- asreml::vpredict(LD_envir, LD_envir.h2 ~ V3 / (V2 + V3 + V4 + V5))
-
-
 LD_herits_sub$model_name_plot <- c('Basic', 'Nestbox', 'Spatial', 'Breeding env.') 
 LD_herits_sub$model_name_plot  <- factor(LD_herits_sub$model_name_plot, 
                                 levels = c('Breeding env.', 'Spatial', 'Nestbox', 'Basic'))
@@ -302,7 +275,7 @@ LD_herit_plot <-
                      aes(x = model_name_plot, 
                          y = Est,
                          ydist = distributional::dist_normal(Est, SE))) +
-  geom_hline(yintercept = c(0.0875, 0.1125, 0.1375, 0.1625, 0.1875, 0.2125, 0.2375, 0.2625), 
+  geom_hline(yintercept = c(0.0875, 0.1125, 0.1375, 0.1625, 0.1875, 0.2125, 0.2375), 
              linetype = "dashed", 
              color = "light grey",
              linewidth = 0.15) +
@@ -318,6 +291,7 @@ LD_herit_plot <-
   #          fill = '#77AADE',
   #          alpha = 0.7,
   #           ) + 
+  scale_y_continuous(limits = c(0.08, 0.24)) +
   scale_size_area(max_size = 1) +
   coord_flip() +
   ylab('Laying date within-year heritability') +
@@ -418,7 +392,7 @@ HD_herit_plot <-
                          y = Est,
                          ydist = distributional::dist_normal(Est, SE))) +
   geom_hline(yintercept = c(0.0875, 0.1125, 0.1375, 0.1625, 0.1875, 
-                            0.2125, 0.2375, 0.2625), 
+                            0.2125, 0.2375), 
              linetype = "dashed", 
              color = "light grey",
              linewidth = 0.15) +
@@ -434,6 +408,8 @@ HD_herit_plot <-
   #          fill = '#77AADE',
   #          alpha = 0.7,
   #           ) + 
+  #make x axis begin at 0.08
+  scale_y_continuous(limits = c(0.08, 0.24)) +
   scale_size_area(max_size = 1) +
   coord_flip() +
   ylab('Hatching date within-year heritability') +
