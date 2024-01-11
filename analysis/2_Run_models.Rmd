@@ -37,11 +37,11 @@ gtit_data_sub_nb <-
     na.strings = c("", "NA")
   ) %>%
   mutate_at(
-    c("breeding_year", "mother", "Fbreeding_age_group", "nest.box"),
+    c("breeding_year", "mother", "Fbreeding_age_group", "nest_box"),
     as.factor
   )
 
-nrow(gtit_data_sub_nb) # 11661 #11658
+nrow(gtit_data_sub_nb) # #11658
 
 # to run with a subset
 # put dates as range e.g. 2011:2021, or 'ALL' to get all years of data
@@ -78,7 +78,7 @@ sd(gtit_data_sub_nb$lay_hatch_lag, na.rm = T) # 2.735
 ```{r Prep Ped}
 # pedigree data input
 ped_data <- read.csv(file.path(dirs$data_output, "GTIT-pedigree-for-asreml.csv"), na.strings = c("", "NA"))
-nrow(ped_data) # 15745
+nrow(ped_data) # 15744
 
 # get inverse of matrix
 ped_data_inv <- asreml::ainverse(ped_gtit_final)
@@ -120,7 +120,7 @@ LD_NB <- asreml::asreml(
   random = ~ vm(mother, ped_data_inv) +
     ide(mother, ped_data_inv) +
     breeding_year +
-    nest.box,
+    nest_box,
   data = breed_data
 )
 saveRDS(LD_NB, file = file.path(dirs$model_output, "LD_NB_output.rds"))
@@ -136,7 +136,7 @@ LD_spat <- asreml::asreml(
   data = breed_data,
   workspace = 300e6, pworkspace = 300e6
 )
-saveRDS(LD_spat, file = file.path(dirs$model_output, "LD_spat_MIC.rds"))
+saveRDS(LD_spat, file = file.path(dirs$model_output, "LD_spat_output.rds"))
 
 
 
@@ -150,7 +150,7 @@ LD_envir <- asreml::asreml(
   data = breed_data,
   workspace = 300e6, pworkspace = 300e6
 )
-saveRDS(LD_envir, file = file.path(dirs$model_output, "LD_envir_MIC.rds"))
+saveRDS(LD_envir, file = file.path(dirs$model_output, "LD_envir_output.rds"))
 
 
 
@@ -174,7 +174,7 @@ HD_NB <- asreml::asreml(
   random = ~ vm(mother, ped_data_inv) +
     ide(mother, ped_data_inv) +
     breeding_year +
-    nest.box,
+    nest_box,
   data = breed_data
 )
 saveRDS(HD_NB, file = file.path(dirs$model_output, "HD_NB_output.rds"))
@@ -191,7 +191,7 @@ HD_spat <- asreml::asreml(
   workspace = 300e6, pworkspace = 300e6,
   maxiter = 50
 )
-saveRDS(HD_spat, file = file.path(dirs$model_output, "HD_dist_MIC.rds"))
+saveRDS(HD_spat, file = file.path(dirs$model_output, "HD_dist_output.rds"))
 
 
 
@@ -206,7 +206,7 @@ HD_envir <- asreml::asreml(
   workspace = 300e6, pworkspace = 300e6,
   maxiter = 50
 )
-saveRDS(HD_envir, file = file.path(dirs$model_output, "HD_envir_MIC.rds"))
+saveRDS(HD_envir, file = file.path(dirs$model_output, "HD_envir_output.rds"))
 ```
 
 
