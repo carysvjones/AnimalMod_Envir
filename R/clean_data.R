@@ -89,13 +89,10 @@ clean_breeding_data <- function(data) {
   # first have to add them as factor levels
   levels(data$mother) <- c(levels(data$mother), "T176160", "V260632")
   levels(data$father) <- c(levels(data$father), "V260844")
-
   data$mother[data$pnum == "20071SW75"] <- "T176160"
   data$mother[data$pnum == "20071O74"] <- "V260632"
-
   data$father[data$pnum == "20071SW75"] <- NA
   data$father[data$pnum == "20071O74"] <- "V260844"
-
 
   ### GREAT TIT specIFIC CLEANING
   data <- data %>%
@@ -113,8 +110,8 @@ clean_breeding_data <- function(data) {
         pnum != "20182EX14" &
         # lay and hatch date are the same day
         pnum != "20071MP96" &
-        #male also recorded as a female...
-        pnum!= '20191B147'
+        # male also recorded as a female...
+        pnum != "20191B147"
     )
 
   # parents are listed as both mother and father?
@@ -257,18 +254,18 @@ clean_ringing_data_2 <- function(data) {
     dplyr::mutate(
       # make all ring names upper case
       ring = toupper(ring),
-      date = substr(data$date, 7, 10)
+      yr = substr(data$date, 7, 10)
     ) %>%
     # make factors
-    dplyr::mutate(across(c("spec", "sex", "place", "site", "date"), factor)) %>%
+    dplyr::mutate(across(c("spec", "sex", "place", "site", "yr"), factor)) %>%
     # get rid of 2013 because that is in other data as well
-    dplyr::filter(date != "2013" &
+    dplyr::filter(yr != "2013" &
       # only not retraps
       # Rtype == 'N' &
       # keep age 1 only - do later!
       # Age == 1 &
       # from Wytham main
-      place == "WYT" &
+      place == "WYT" & #| place == " WYT" &
       # get rid of those with no ring
       !is.na(ring) &
       ring != "UNRINGED")
@@ -293,7 +290,7 @@ clean_ringing_data_2 <- function(data) {
 
   # has ring TS45000 twice , pnum 20111SW70 (in this brood ring number fits with others) and
   # 20161SW44 (here does not fit) - remove pnum == '20161SW44'
-  data <- droplevels(subset(data, !(date == "2016" & ring == "TS45000")))
+  data <- droplevels(subset(data, !(yr == "2016" & ring == "TS45000")))
 
   return(data)
 }
@@ -374,7 +371,7 @@ get_age <- function(data, ringing_data) {
 #' @param x Factor to check for duplication...
 #' @return ....
 
-isdup <- function (x) duplicated (x) | duplicated (x, fromLast = TRUE)
+isdup <- function(x) duplicated(x) | duplicated(x, fromLast = TRUE)
 
 
 #' Remove second broods, for mothers, fathers, late broods - choose which to remove
