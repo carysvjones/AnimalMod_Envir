@@ -161,14 +161,6 @@ nrow(ped_gtit_final) # 15744
 ped_gtit_final <- nadiv::prepPed(ped_gtit_final)
 
 write.csv(ped_gtit_final, file = file.path(dirs$data_output, "GTIT-pedigree-for-asreml.csv"), row.names = F)
-
-
-
-missing <- ped_data[!(ped_data$id %in% ped_gtit_final$id), ]
-nrow(missing) # 721
-
-missing[missing$id %in% ped_gtit_short$id, ]
-# VZ31433
 ```
 
 
@@ -302,7 +294,7 @@ gtit_data_sub_nb <- gtit_data_sub_nb %>%
 
 
 # output data
-write.csv(gtit_data_sub_nb, file = file.path(dirs$data_output, "GTIT_data_anim_mod2.csv"), row.names = F)
+write.csv(gtit_data_sub_nb, file = file.path(dirs$data_output, "GTIT_data_anim_mod.csv"), row.names = F)
 ```
 
 
