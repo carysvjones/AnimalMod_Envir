@@ -46,7 +46,6 @@ breed2022 <- read.csv(file.path(
   janitor::clean_names()
 nrow(breed2022) # 1248
 
-
 # bind 2
 breed <- rbind(breed, breed2021, breed2022)
 nrow(breed) # 41987
@@ -55,6 +54,8 @@ nrow(breed) # 41987
 # clean dataset
 breed <- clean$clean_breeding_data(breed)
 nrow(breed) # 40248
+
+head(breed)
 
 write.csv(breed, file = file.path(
   dirs$data_output,
@@ -102,7 +103,7 @@ ring <- read.csv(file.path(
   # clean with function - removes errors and cleans up dataframe
   clean$clean_ringing_data() %>%
   # keep only some columns
-  select(pnum, age, sex, bto_species_code, bto_ring, yr, nb, retrap)
+  select(pnum, age, sex, bto_species_code, bto_ring, date, yr, nb, retrap)
 nrow(ring) # 179010
 
 # Clean Ringing data 2013-2022  -------------------------------------
@@ -110,18 +111,17 @@ nrow(ring) # 179010
 ring2_clean <- ring2 %>%
   # clean with function - removes errors and cleans up dataframe
   clean$clean_ringing_data_2(.) %>%
-  mutate(pnum = paste0(date, "1", site)) %>%
+  mutate(pnum = paste0(yr, "1", site)) %>%
   # rename columns
   rename(
     bto_ring = ring,
     bto_species_code = spec,
-    yr = date,
     nb = site,
     retrap = rtype,
     location = place
   ) %>%
   # keep only selected columns
-  dplyr::select(pnum, age, sex, bto_species_code, bto_ring, yr, nb, retrap)
+  dplyr::select(pnum, age, sex, bto_species_code, bto_ring, date, yr, nb, retrap)
 
 nrow(ring2_clean) # 61343
 
