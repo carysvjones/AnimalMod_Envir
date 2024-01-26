@@ -8,7 +8,7 @@ date: '2023-01-26'
 ```{r}
 box::use(R / dirs[dirs])
 box::use(clean = R / clean_data)
-box::use(mods = R / for_models)
+box::use(mods = R / for_analysis)
 
 box::use(readr[read_csv])
 box::use(ggplot2)
@@ -84,6 +84,9 @@ length(unique(ring_gtit$bto_ring)) # 91645
 breed_ring_gtit <- merge(breed_gtit, ring_gtit, by = "pnum", all = T) %>%
   # keep only some columns
   dplyr::select(bto_ring, mother, father, sex, nest_box) %>%
+  #nest box here is nest box the bto_ring bird was born in 
+  #rename this as use it for regression analysis (supplementary)
+  dplyr::rename(nest_box_born_in = nest_box) %>%
   # remove rows where bto_ring, mother and father are NA
   dplyr::filter(!is.na(bto_ring) | !is.na(mother) | !is.na(father))
 
@@ -136,9 +139,9 @@ head(full_ped)
 nrow(full_ped) # 99239
 
 # so can save this here...
-write.csv(ped_gtit_short_ext_fix,
+write.csv(full_ped,
   file =
-    file.path(dirs$data_output, "GTIT-pedigree-full-fixed.csv"), row.names = F
+    file.path(dirs$data_output, "GTIT_pedigree_full.csv"), row.names = F
 )
 
 # I myself then keep just those that have a laying date recorded, as that's what is useful for my analysis
@@ -172,71 +175,70 @@ PREPARE DATA
 
 # BREEDING DATA ---------------------------------------------------
 
-nrow(breed_gtit) # 18000
-
-# get rid of those with experiment codes, no LD and no mother
-breed_gtit_noNA <- breed_gtit %>%
-  dplyr::filter(is.na(breed_gtit$experiment_codes) &
-    !is.na(breed_gtit$april_lay_date))
-
-nrow(breed_gtit_noNA) # 15436
 # how many have no mother
-nrow(subset(breed_gtit_noNA, is.na(mother))) # 3288
-nrow(subset(breed_gtit_noNA, is.na(father))) # 5789
+nrow(subset(breed_gtit_age_noNA, is.na(mother))) # 3288
+nrow(subset(breed_gtit_age_noNA, is.na(father))) # 5789
 
 # have both parents
-nrow(subset(breed_gtit_noNA, !is.na(mother) & !is.na(father))) # 9260
+nrow(subset(breed_gtit_age_noNA, !is.na(mother) & !is.na(father))) # 9260
 # have just mother
-nrow(subset(breed_gtit_noNA, !is.na(mother))) # 12148
-nrow(subset(breed_gtit_noNA, !is.na(mother) & is.na(father))) # 2888 have no mother but have father
+nrow(subset(breed_gtit_age_noNA, !is.na(mother))) # 12148
+nrow(subset(breed_gtit_age_noNA, !is.na(mother) & is.na(father))) # 2888 have no mother but have father
 # have jsut father
-nrow(subset(breed_gtit_noNA, !is.na(father))) # 9647
-nrow(subset(breed_gtit_noNA, !is.na(father) & is.na(mother))) # 387 have no father but have mother
-
-
-breed_gtit_noNA <- breed_gtit_noNA %>%
-  dplyr::filter(!is.na(mother)) %>%
-  dplyr::select(
-    "year", "pnum", "section", "april_lay_date", "april_hatch_date",
-    "clutch_size", "num_fledglings", "father", "mother", "nest_box"
-  )
-length(unique(breed_gtit_noNA$mother)) # 7791
-length(unique(breed_gtit_noNA$father)) # 6342
-length(unique(breed_gtit_noNA$pnum)) # 12148
-summary(breed_gtit_noNA$april_lay_date) #-5 to 83
-
-
-nrow(breed_gtit_noNA) # 12148
+nrow(subset(breed_gtit_age_noNA, !is.na(father))) # 9647
+nrow(subset(breed_gtit_age_noNA, !is.na(father) & is.na(mother))) # 387 have no father but have mother
 
 
 # ADD AGE  ----------------------------------------------------------------
 
 ring <- read.csv(file.path(dirs$data_output, "ebmp_database_ringing_record_export_GT&BT_all.csv"), na.strings = c("", "NA"))
 
-breed_gtit_noNA_age <- clean$get_age(breed_gtit_noNA, ring)
-table(breed_gtit_noNA_age$fem_breed_age)
+breed_gtit_age <- breed_gtit %>%
+  dplyr::filter(!is.na(mother)) %>%
+  clean$get_age(., ring)
+table(breed_gtit_age$fem_breed_age)
 #    1    2    3    4    5    6    7    8    9
-# 6558 3191 1421  622  260   67   23    5    1
+# 7593 3748 1676  742  290   85   26    5    1
+
+
+length(unique(breed_gtit_age$mother)) # 7791
+length(unique(breed_gtit_age$father)) # 6342
+length(unique(breed_gtit_age$pnum)) # 12148
+summary(breed_gtit_age$april_lay_date) #-5 to 83
+
+nrow(breed_gtit_noNA_age) # 14166
+
+# get rid of those with experiment codes, no LD and no mother
+breed_gtit_age_noNA <- breed_gtit_age %>%
+  dplyr::filter(is.na(breed_gtit_age$experiment_codes) &
+    !is.na(breed_gtit_age$april_lay_date)) %>%
+  dplyr::select(
+    "year", "pnum", "section", "april_lay_date", "april_hatch_date",
+    "clutch_size", "num_fledglings", "father", "mother", "nest_box",
+    "fem_dob", "fem_breed_age"
+  )
+
+nrow(breed_gtit_age_noNA) # 12148
 
 
 # GET RID mother & father KNOWN 2ND BROODS & LATE BROODS ------------------
 
 # use function - decide which ones to use
 # should say how many breeding attempts it gets rid of each time
-breed_gtit_noNA_age_sub <- clean$remove_late_broods(breed_gtit_noNA_age,
+breed_gtit_age_noNA_sub <- clean$remove_late_broods(breed_gtit_age_noNA,
   mothers = T, fathers = T,
   late = F, late_persection = T
 )
-nrow(breed_gtit_noNA_age_sub) # 11743
+nrow(breed_gtit_age_noNA_sub) # 11743
 
 # rename year as breeding year - make new column of yearling and adult
-breed_gtit_noNA_age_sub <- breed_gtit_noNA_age_sub %>%
+breed_gtit_age_noNA_sub <- breed_gtit_age_noNA_sub %>%
   dplyr::rename("breeding_year" = "year") %>%
   dplyr::mutate(Fbreeding_age_group = ifelse(fem_breed_age == 1,
     "Yearling", "Adult"
   ))
-summary(as.factor(breed_gtit_noNA_age_sub$Fbreeding_age_group)) # Adult 5368, Yearling 6375
-summary(as.factor(breed_gtit_noNA_age_sub$fem_breed_age))
+summary(as.factor(breed_gtit_age_noNA_sub$Fbreeding_age_group)) # Adult 5420, Yearling 6323
+summary(as.factor(breed_gtit_age_noNA_sub$fem_breed_age))
 ```
 
 
@@ -255,7 +257,7 @@ habitat_data <- read.csv(file.path(
 
 
 # now merge with breeding data!
-gtit_data_sub_nb <- merge(breed_gtit_noNA_age_sub, habitat_data, by = "pnum")
+gtit_data_sub_nb <- merge(breed_gtit_age_noNA_sub, habitat_data, by = "pnum")
 nrow(gtit_data_sub_nb) # 11658 - only a few hundred missing from before
 
 
