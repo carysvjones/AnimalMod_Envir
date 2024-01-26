@@ -3,7 +3,7 @@
 
 box::use(R / dirs[dirs])
 box::use(clean = R / clean_data)
-box::use(mod = R / for_models)
+box::use(mod = R / for_analysis)
 
 box::use(ggplot2[...])
 box::use(dplyr[...])
