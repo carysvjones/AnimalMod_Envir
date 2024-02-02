@@ -84,8 +84,8 @@ length(unique(ring_gtit$bto_ring)) # 91645
 breed_ring_gtit <- merge(breed_gtit, ring_gtit, by = "pnum", all = T) %>%
   # keep only some columns
   dplyr::select(bto_ring, mother, father, sex, nest_box) %>%
-  #nest box here is nest box the bto_ring bird was born in 
-  #rename this as use it for regression analysis (supplementary)
+  # nest box here is nest box the bto_ring bird was born in
+  # rename this as use it for regression analysis (supplementary)
   dplyr::rename(nest_box_born_in = nest_box) %>%
   # remove rows where bto_ring, mother and father are NA
   dplyr::filter(!is.na(bto_ring) | !is.na(mother) | !is.na(father))
@@ -206,9 +206,9 @@ length(unique(breed_gtit_age$father)) # 6342
 length(unique(breed_gtit_age$pnum)) # 12148
 summary(breed_gtit_age$april_lay_date) #-5 to 83
 
-nrow(breed_gtit_noNA_age) # 14166
+nrow(breed_gtit_age) # 14166
 
-# get rid of those with experiment codes, no LD and no mother
+# get rid of those with experiment codes, no LD
 breed_gtit_age_noNA <- breed_gtit_age %>%
   dplyr::filter(is.na(breed_gtit_age$experiment_codes) &
     !is.na(breed_gtit_age$april_lay_date)) %>%
