@@ -18,520 +18,487 @@ box::use(ggplot2[...])
 box::use(dplyr)
 box::use(tidyr)
 box::use(magrittr[`%>%`])
-
-
-
 ```
 
 Supplementary for paper - van der Juegd and McCleery 2002 redo 
 
 
 ```{r}
-#Carys Jones 22/04/2021
+# Carys Jones 22/04/2021
 
-#RE-DOING VAN DER JUEGD HERITABILITY ANALYSIS - DISPERSAL DISTANCE AND LAY DATE 
+# RE-DOING VAN DER JUEGD HERITABILITY ANALYSIS - DISPERSAL DISTANCE AND LAY DATE
 
 # GET MEAN LD OF INDIVS ---------------------------------------------------
 
-#input breeding data - created in script 1
-breed_gtit_sub <- read.csv(file.path(dirs$data, 'GTIT_data_anim_mod.csv'), na.strings=c("", "NA"))
-nrow(breed_gtit_sub) #11526
+# input breeding data - created in 1_Prep_data.R
+breed_gtit_sub <- read.csv(file.path(dirs$data_output, "GTIT_data_anim_mod.csv"),
+  na.strings = c("", "NA")
+)
+nrow(breed_gtit_sub) # 11658
 
-summary(as.factor(breed_gtit_sub$Fem_breed_age))
+summary(as.factor(breed_gtit_sub$fem_breed_age))
 
-#regress with year and age at breeding to get residuals
+# regress with year and age at breeding to get residuals
 breed_gtit_sub <- breed_gtit_sub %>%
-  dplyr::mutate(resid_LD = lm(April.lay.date ~ breeding_year + Fem_breed_age)$residuals)
+  dplyr::mutate(resid_ld = lm(april_lay_date ~ breeding_year + fem_breed_age)$residuals)
 
-#how many have multiple recorded lay dates
+# how many have multiple recorded lay dates
 num_lay <- breed_gtit_sub %>%
-  dplyr::group_by(., Mother) %>%
-  dplyr::summarise(., num_LD = length(resid_LD))
-#how many more than 1
-nrow(subset(num_lay, num_LD > 1)) #2559
+  dplyr::group_by(., mother) %>%
+  dplyr::summarise(., num_ld = length(resid_ld))
+# how many more than 1
+nrow(subset(num_lay, num_ld > 1)) # 2589
 
-#get mean over breeding attempts
+# get mean over breeding attempts
 breed_gtit_mothLD <- breed_gtit_sub %>%
-  dplyr::group_by(Mother) %>%
-  dplyr::summarise(resid_LD_mean = mean(resid_LD))
+  dplyr::group_by(mother) %>%
+  dplyr::summarise(resid_ld_mean = mean(resid_ld))
 
-#then can merge these with pedigree
-#in pedigree - get mean LD of id, of Mother and of Father
-ped_gtit <- read.csv(file.path(dirs$data, 'GTIT-pedigree-for-asreml.csv'), na.strings=c("", "NA"))
+# then can merge these with pedigree
+# in pedigree - get mean LD of id, of mother and of Father
+ped_gtit <- read.csv(file.path(dirs$data_output, "GTIT-pedigree-for-asreml.csv"), na.strings = c("", "NA"))
 
-nrow(breed_gtit_mothLD) #7595
-nrow(ped_gtit) #15745
+nrow(breed_gtit_mothLD) # 7679
+nrow(ped_gtit) # 15744
 
-#merge - to get ID mean LD for id and dam
-ped_gtit_LD <- dplyr::inner_join(ped_gtit, breed_gtit_mothLD, by = c('id' = 'Mother')) %>%
-  dplyr::rename(resid_LD_mean_id = resid_LD_mean) %>%
-  dplyr::select(id, dam, sire, resid_LD_mean_id) %>%
-  dplyr::inner_join(., breed_gtit_mothLD, by = c('dam' = 'Mother')) %>%
-  dplyr::rename(resid_LD_mean_dam = resid_LD_mean) %>%
-  dplyr::select(id, dam, sire, resid_LD_mean_id, resid_LD_mean_dam)
+# merge - to get ID mean LD for id and dam
+ped_gtit_LD <- dplyr::inner_join(ped_gtit, breed_gtit_mothLD, by = c("id" = "mother")) %>%
+  dplyr::rename(resid_ld_mean_id = resid_ld_mean) %>%
+  dplyr::select(id, dam, sire, resid_ld_mean_id) %>%
+  dplyr::inner_join(., breed_gtit_mothLD, by = c("dam" = "mother")) %>%
+  dplyr::rename(resid_ld_mean_dam = resid_ld_mean) %>%
+  dplyr::select(id, dam, sire, resid_ld_mean_id, resid_ld_mean_dam)
 
-head(ped_gtit_LD)
-nrow(ped_gtit_LD) #3353
+nrow(ped_gtit_LD) # 3378
 
 # MERGE TO MAKE DATA WITH LD, YR, DISP DIST  ------------------------------------------------------
 
-#use pedigree - created in script 1
-ped_big <- read.csv('./data/GTIT-pedigree_merged_data_all_years.csv')
+# use pedigree - created in script 1_Prep_data
+ped_big <- read.csv(file.path(dirs$data_output, "GTIT-pedigree-full.csv"))
 head(ped_big)
-#get coordinates from nestbox data - from raw dat - keep 1 row for each box
-habitat_data <- read.csv(file.path(dirs$data, 'Habitat_data_nestboxes.csv'), na.strings = "NA") %>%
-  dplyr::distinct(Box, .keep_all = T) %>%
-  dplyr::select(Box, x, y)
-nrow(habitat_data) #1016
+# get coordinates from nestbox data - from raw dat - keep 1 row for each box
+habitat_data <- read.csv(file.path(dirs$data_output, "Habitat_data_nestboxes.csv"), na.strings = "NA") %>%
+  dplyr::distinct(box, .keep_all = T) %>%
+  dplyr::select(box, x, y)
+nrow(habitat_data) # 1016
 
-
-subset(ped_big,  Mother == '603711')
-subset(ped_gtit,  dam == '603711')
-
-
-#get mothers first breeding attempt as already have where born
+# get box for mothers first breeding attempt as already have where born
 disp_LD <- breed_gtit_sub %>%
-  dplyr::group_by(Mother) %>%
+  dplyr::group_by(mother) %>%
   dplyr::slice_min(order_by = breeding_year) %>%
   dplyr::ungroup() %>%
-  dplyr::select(Mother, breeding_year, nest.box) %>%
-  dplyr::inner_join(ped_big, ., by = c('bto_ring' = 'Mother')) %>%
-  dplyr::rename(nestbox_firstbr = nest.box,
-                id = bto_ring,
-                dam = Mother) %>%
+  dplyr::select(mother, nest_box) %>%
+  dplyr::inner_join(ped_big, ., by = c("bto_ring" = "mother")) %>%
+  dplyr::rename(
+    nestbox_firstbr = nest_box,
+    id = bto_ring,
+    dam = mother
+  ) %>%
   dplyr::select(id, dam, nest_box_born_in, nestbox_firstbr) %>%
-  #merge with nestbox to get locations and distance
-  dplyr::inner_join(., habitat_data, by = c('nest_box_born_in' = 'Box')) %>%
-  dplyr::rename(x_born = x,
-                y_born = y) %>%
-  dplyr::inner_join(., habitat_data, by = c('nestbox_firstbr' = 'Box')) %>%
-  dplyr::rename(x_breed = x,
-                y_breed = y) %>%
+  # merge with nestbox to get locations and distance
+  dplyr::inner_join(., habitat_data, by = c("nest_box_born_in" = "box")) %>%
+  dplyr::rename(
+    x_born = x,
+    y_born = y
+  ) %>%
+  dplyr::inner_join(., habitat_data, by = c("nestbox_firstbr" = "box")) %>%
+  dplyr::rename(
+    x_breed = x,
+    y_breed = y
+  ) %>%
   dplyr::mutate(disp_dist = sqrt((x_breed - x_born)^2 + (y_breed - y_born)^2)) %>%
-  #merge to get LDs
-  dplyr::inner_join(., ped_gtit_LD, by = c('id', 'dam'))
-  
-#nest_box_born in is bto_ring's nest box born in
-#nestbox_firstbr is bto_ring's first nest box they bred in (dispersal box)
+  # merge to get LDs
+  dplyr::inner_join(., ped_gtit_LD, by = c("id", "dam"))
 
-head(disp_LD)
-nrow(disp_LD) #3322
+# nest_box_born in is bto_ring's nest box born in
+# nestbox_firstbr is bto_ring's first nest box they bred in (dispersal box)
+
+nrow(disp_LD) # 3371
+# get number of unique birds in id and dam column together
+length(unique(c(disp_LD$id, disp_LD$dam))) # 3191
 
 median(disp_LD$disp_dist)
 mean(disp_LD$disp_dist)
 
-saveRDS(disp_LD, file = file.path(dirs$data,'mothers_daughter_disp_LD.rds'))
+# percentage of bird staying within 1000m
+nrow(subset(disp_LD, disp_dist <= 1000)) / nrow(disp_LD) # 0.75
 
+saveRDS(disp_LD, file = file.path(dirs$data_output, "mothers_daughter_disp_LD.rds"))
 ```
 
 PLOT OF DISPERSAL DISTANCE
 
 ```{r}
-
-#just females with lines on for splitting up distance - for Tos write up
-ggplot2::ggplot(subset(disp_LD), 
-       aes(x = disp_dist)) + 
-  geom_histogram(bins = 50, colour = 'white', fill = 'cornflower blue') +
-  xlab('Natal dispersal distance, metres') + ylab('Number of individuals') +
+# just females with lines on for splitting up distance
+natal_disp_plot <-
+  ggplot(
+    subset(disp_LD),
+    aes(x = disp_dist)
+  ) +
+  geom_histogram(bins = 50, colour = "white", fill = "cornflower blue") +
+  xlab("Natal dispersal distance, metres") +
+  ylab("Number of individuals") +
   geom_vline(xintercept = 500, linewidth = 1, color = "black") +
   geom_vline(xintercept = 1000, linewidth = 1, color = "black") +
-  theme(panel.background = element_rect(fill = "white", color = "white"),
-        plot.background = element_rect(fill = "white", color = "white"),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.major.y = element_line(color = 'grey'),
-        #axis.title.x = element_text(colour = "#a4948c"),
-        #axis.title.y = element_text(colour = "#a4948c"),
-        text = element_text(color="black", face = 'bold', size = 16), 
-        axis.text = element_text(color="black", face = 'bold', size = 12))
+  theme(
+    panel.background = element_rect(fill = "white", color = "white"),
+    plot.background = element_rect(fill = "white", color = "white"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_line(color = "grey"),
+    # axis.title.x = element_text(colour = "#a4948c"),
+    # axis.title.y = element_text(colour = "#a4948c"),
+    text = element_text(color = "black", face = "bold", size = 16),
+    axis.text = element_text(color = "black", face = "bold", size = 12)
+  )
 
+ggsave(
+  filename = "./plots/natal_dispersal_distance.pdf",
+  plot = natal_disp_plot,
+  scale = 1,
+  width = 7,
+  height = 15,
+  units = "cm",
+  dpi = 350,
+  limitsize = FALSE,
+  bg = "transparent"
+)
 ```
 
 
 PLOTS OF LAY DATES
 
 ```{r}
-
-#BIG PLOT - write up
-ggplot(disp_LD, aes(x = resid_LD_mean_dam, y = resid_LD_mean_id)) +
-  geom_point(alpha = 0.4, colour = '#6495ED') +
-  geom_smooth(method = 'lm', colour = '#3159A0') +
-  xlab("Mother's mean hatching date") + ylab("Daughter's mean hatching date") +
-  theme(panel.background = element_rect(fill = "white", color = "white"),
-        plot.background = element_rect(fill = "white", color = "white"),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.major.y = element_line(color = 'grey'),
-        #axis.title.x = element_text(colour = "#a4948c"),
-        #axis.title.y = element_text(colour = "#a4948c"),
-        text = element_text(color="black", face = 'bold', size = 16), 
-        axis.text = element_text(color="black", face = 'bold', size = 12)) 
-#paste this heritability somewhere
-round(summary(lm(disp_LD$resid_LD_mean_id ~ disp_LD$resid_LD_mean_dam))$coefficient[2]*2, 2) #0.23
-
-
-#what is heritability?
-summary(lm(disp_LD$resid_LD_mean_id ~ disp_LD$resid_LD_mean_dam)) #0.113 (0.020)
-#heritabiltiy = slope * 2
-summary(lm(disp_LD$resid_LD_mean_id ~ disp_LD$resid_LD_mean_dam))$coefficient[2]*2 #0.23
-
-nrow(disp_LD) #3322
-
-
+# what is heritability?
+# heritabiltiy = slope * 2
+summary(lm(disp_LD$resid_ld_mean_id ~ disp_LD$resid_ld_mean_dam))$coefficient[2] * 2 # 0.23
 ```
 
 GROUPING DISPERSAL DISTANCE
 
 ```{r}
-#make column classing disp distance to short, medium, large 
+# make column classing disp distance to short, medium, large
 
-disp_LD <- disp_LD %>% 
-  dplyr::mutate(disp_dist_split =
-                  dplyr::case_when(disp_dist <= 500 ~ "short", 
-                               disp_dist > 500 & disp_dist <= 1000 ~ "medium",
-                               disp_dist > 1000 ~ "long")
-)
+disp_LD <- disp_LD %>%
+  dplyr::mutate(
+    disp_dist_split =
+      dplyr::case_when(
+        disp_dist <= 500 ~ "short",
+        disp_dist > 500 & disp_dist <= 1000 ~ "medium",
+        disp_dist > 1000 ~ "long"
+      )
+  )
 table(disp_LD$disp_dist_split)
 
-#mean of each group
+# mean of each group
 disp_LD_summ <- disp_LD %>%
   dplyr::group_by(., disp_dist_split) %>%
-  dplyr::summarise(., length = length(disp_dist_split),
-            mean_disp = mean(disp_dist),
-            median_disp = median(disp_dist))
+  dplyr::summarise(.,
+    length = length(disp_dist_split),
+    mean_disp = mean(disp_dist),
+    median_disp = median(disp_dist)
+  )
 disp_LD_summ
 
- #plot each group by itself
-#short
-ggplot(subset(disp_LD, disp_dist_split == 'short'), 
-       aes(x = resid_LD_mean_dam, y = resid_LD_mean_id)) + 
-  geom_point(alpha = 0.6, colour = 'cornflower blue') +
-  geom_smooth(method = 'lm', colour = 'dark blue') +
-  theme_bw() 
-#medium
-ggplot(subset(disp_LD, disp_dist_split == 'medium'), 
-       aes(x = resid_LD_mean_dam, y = resid_LD_mean_id)) + 
-  geom_point() + theme_bw() + geom_smooth(method = 'lm')
-#long
-ggplot(subset(disp_LD, disp_dist_split == 'long'), 
-       aes(x = resid_LD_mean_dam, y = resid_LD_mean_id)) + 
-  geom_point() + theme_bw() + geom_smooth(method = 'lm')
 
-#linear models 
-summary(lm(resid_LD_mean_id ~ resid_LD_mean_dam, data = subset(disp_LD, disp_dist_split == 'short')))
-#0.17986 +- 0.03712, p < 0.001, N = 962
-summary(lm(resid_LD_mean_id ~ resid_LD_mean_dam, data = subset(disp_LD, disp_dist_split == 'medium')))
-#0.09436 +- 0.03584, p = 0.009, N = 1075
-summary(lm(resid_LD_mean_id ~ resid_LD_mean_dam, data = subset(disp_LD, disp_dist_split == 'long')))
-#0.07417 +- 0.03227, p = 0.022, N = 1250
+# linear models
+short_output <- summary(lm(resid_ld_mean_id ~ resid_ld_mean_dam,
+  data = subset(disp_LD, disp_dist_split == "short")
+))
+# 0.17986 +- 0.03712, p < 0.001, N = 962
+short_output$coefficient[2] * 2 # 0.37
+
+medium_output <- summary(lm(resid_ld_mean_id ~ resid_ld_mean_dam,
+  data = subset(disp_LD, disp_dist_split == "medium")
+))
+# 0.09436 +- 0.03584, p = 0.009, N = 1075
+medium_output$coefficient[2] * 2 # 0.19
+
+long_output <- summary(lm(resid_ld_mean_id ~ resid_ld_mean_dam,
+  data = subset(disp_LD, disp_dist_split == "long")
+))
+# 0.07417 +- 0.03227, p = 0.022, N = 1250
+long_output$coefficient[2] * 2 # 0.15
 
 
-str(daughters_mothers_noNA)
-#test difference in slope across dispersal classess?
-summary(glm(resid_LD_mean_id ~ resid_LD_mean_dam + disp_dist_split + disp_dist_split*resid_LD_mean_dam,
-            data = disp_LD))
-mod1 <- glm(resid_LD_mean_id ~ resid_LD_mean_dam + disp_dist_split + disp_dist_split*resid_LD_mean_dam,
-            data = disp_LD)
-summary(anova(mod1))
+# overall regression plot
+regression_plot_overall <-
+  ggplot(
+    disp_LD,
+    aes(x = resid_ld_mean_dam, y = resid_ld_mean_id)
+  ) +
+  geom_point(alpha = 0.4, colour = "cornflower blue") +
+  geom_smooth(method = "lm", colour = "#3159A0") +
+  xlab("Mother's mean hatching date") +
+  ylab("Daughter's mean hatching date") +
+  theme(
+    panel.background = element_rect(fill = "white", color = "white"),
+    plot.background = element_rect(fill = "white", color = "white"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_line(color = "grey"),
+    # axis.title.x = element_text(colour = "#a4948c"),
+    # axis.title.y = element_text(colour = "#a4948c"),
+    text = element_text(color = "black", face = "bold", size = 16),
+    axis.text = element_text(color = "black", face = "bold", size = 12),
+    legend.position = c(.972, .972),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6),
+    legend.background = element_blank(),
+    legend.box.background = element_blank(),
+    strip.text.x = element_text(size = 14, colour = "black", face = "bold"),
+    strip.background = element_rect(colour = "white", fill = "white")
+  )
 
+ggsave(
+  filename = "./plots/regression_plot_facet.pdf",
+  plot = regression_plot_facet,
+  scale = 1,
+  width = 7,
+  height = 15,
+  units = "cm",
+  dpi = 350,
+  limitsize = FALSE,
+  bg = "transparent"
+)
 
-#plot with facet - for presentation 
-ggplot(transform(daughters_mothers_noNA,
-                 disp_dist_split = factor(disp_dist_split, 
-                                          levels=c("short","medium","long"))), 
-       aes(x = resid_LD_mean_dam, y = resid_LD_mean_id)) +
-  geom_point(alpha = 0.4, colour = '#8ca494') +
-  geom_smooth(method = 'lm', colour = '#64848c') +
+# plot with facet
+regression_plot_facet <-
+  ggplot(
+    transform(disp_LD,
+      disp_dist_split = factor(disp_dist_split,
+        levels = c("short", "medium", "long")
+      )
+    ),
+    aes(x = resid_ld_mean_dam, y = resid_ld_mean_id)
+  ) +
+  geom_point(alpha = 0.4, colour = "cornflower blue") +
+  geom_smooth(method = "lm", colour = "#3159A0") +
   facet_wrap(~disp_dist_split) +
-  xlab("Mother's mean laying date") + ylab("Daughter's mean laying date") +
-  theme(panel.background = element_rect(fill = "#f8efdf", color = "#f8efdf"),
-        plot.background = element_rect(fill = "#f8efdf", color = "#f8efdf"),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.major.y = element_line(color = '#a4948c'),
-        #axis.title.x = element_text(colour = "#a4948c"),
-        #axis.title.y = element_text(colour = "#a4948c"),
-        text = element_text(color="#a4948c", face = 'bold', size = 20), 
-        axis.text = element_text(color="#a4948c", face = 'bold', size = 16),
-        legend.position = c(.972, .972),
-        legend.justification = c("right", "top"),
-        legend.box.just = "right",
-        legend.margin = margin(6, 6, 6, 6),
-        legend.background = element_blank(),
-        legend.box.background = element_blank(),
-        strip.text.x = element_text(size=14, colour = '#64848c', face = 'bold'),
-        strip.background = element_rect(colour="#f8efdf", fill="#f8efdf"))
-#axis.line.x = element_line(size = 0.5, linetype = "solid", colour = "#a4948c"),
-#axis.line.y = element_line(size = 0.5, linetype = "solid", colour = "#a4948c"))  
+  xlab("Mother's mean hatching date") +
+  ylab("Daughter's mean hatching date") +
+  theme(
+    panel.background = element_rect(fill = "white", color = "white"),
+    plot.background = element_rect(fill = "white", color = "white"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_line(color = "grey"),
+    # axis.title.x = element_text(colour = "#a4948c"),
+    # axis.title.y = element_text(colour = "#a4948c"),
+    text = element_text(color = "black", face = "bold", size = 16),
+    axis.text = element_text(color = "black", face = "bold", size = 12),
+    legend.position = c(.972, .972),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6),
+    legend.background = element_blank(),
+    legend.box.background = element_blank(),
+    strip.text.x = element_text(size = 14, colour = "black", face = "bold"),
+    strip.background = element_rect(colour = "white", fill = "white")
+  )
 
-
-#plot with facet - for write up!
-ggplot(transform(disp_LD,
-                 disp_dist_split = factor(disp_dist_split, 
-                                          levels=c("short","medium","long"))), 
-       aes(x = resid_LD_mean_dam, y = resid_LD_mean_id)) +
-  geom_point(alpha = 0.4, colour = 'aquamarine3') +
-  geom_smooth(method = 'lm', colour = '#29705c') +
-  facet_wrap(~disp_dist_split) +
-  xlab("Mother's mean hatching date") + ylab("Daughter's mean hatching date") +
-  theme(panel.background = element_rect(fill = "white", color = "white"),
-        plot.background = element_rect(fill = "white", color = "white"),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.major.y = element_line(color = 'grey'),
-        #axis.title.x = element_text(colour = "#a4948c"),
-        #axis.title.y = element_text(colour = "#a4948c"),
-        text = element_text(color="black", face = 'bold', size = 16), 
-        axis.text = element_text(color="black", face = 'bold', size = 12),
-        legend.position = c(.972, .972),
-        legend.justification = c("right", "top"),
-        legend.box.just = "right",
-        legend.margin = margin(6, 6, 6, 6),
-        legend.background = element_blank(),
-        legend.box.background = element_blank(),
-        strip.text.x = element_text(size=14, colour = 'black', face = 'bold'),
-        strip.background = element_rect(colour="white", fill="white"))
-
-
-theme_bw()
-#axis.line.x = element_line(size = 0.5, linetype = "solid", colour = "#a4948c"),
-#axis.line.y = element_line(size = 0.5, linetype = "solid", colour = "#a4948c"))  
-
+ggsave(
+  filename = "./plots/regression_plot_facet.pdf",
+  plot = regression_plot_facet,
+  scale = 1,
+  width = 7,
+  height = 15,
+  units = "cm",
+  dpi = 350,
+  limitsize = FALSE,
+  bg = "transparent"
+)
 ```
 
 HATCHING DATE
 
 ```{r}
-
-#remove those with no hatch date
+# remove those with no hatch date
 breed_gtit_sub_hat <- breed_gtit_sub %>%
-  dplyr::filter(!is.na(April.hatch.date))
-nrow(breed_gtit_sub_hat) #10746
+  dplyr::filter(!is.na(april_hatch_date))
+nrow(breed_gtit_sub_hat) # 10890
 
-summary(as.factor(breed_gtit_sub_hat$Fem_breed_age))
-
-#regress with year and age at breeding to get residuals
+# regress with year and age at breeding to get residuals
 breed_gtit_sub_hat <- breed_gtit_sub_hat %>%
-  dplyr::mutate(resid_HD = lm(April.hatch.date ~ breeding_year + Fem_breed_age)$residuals)
+  dplyr::mutate(resid_hd = lm(april_hatch_date ~ breeding_year + fem_breed_age)$residuals)
 
-#how many have multiple recorded lay dates
+# how many have multiple recorded lay dates
 num_hat <- breed_gtit_sub_hat %>%
-  dplyr::group_by(., Mother) %>%
-  dplyr::summarise(., num_HD = length(resid_HD))
-#how many more than 1
-nrow(subset(num_hat, num_HD > 1)) #2353
+  dplyr::group_by(., mother) %>%
+  dplyr::summarise(., num_hd = length(resid_hd))
+# how many more than 1
+nrow(subset(num_hat, num_hd > 1)) # 2383
 
-#get mean over breeding attempts
+# get mean over breeding attempts
 breed_gtit_mothHD <- breed_gtit_sub_hat %>%
-  dplyr::group_by(Mother) %>%
-  dplyr::summarise(resid_HD_mean = mean(resid_HD))
+  dplyr::group_by(mother) %>%
+  dplyr::summarise(resid_hd_mean = mean(resid_hd))
 
-#merge - to get ID mean LD for id and dam
-ped_gtit_HD <- dplyr::inner_join(ped_gtit, breed_gtit_mothHD, by = c('id' = 'Mother')) %>%
-  dplyr::rename(resid_HD_mean_id = resid_HD_mean) %>%
-  dplyr::select(id, dam, sire, resid_HD_mean_id) %>%
-  dplyr::inner_join(., breed_gtit_mothHD, by = c('dam' = 'Mother')) %>%
-  dplyr::rename(resid_HD_mean_dam = resid_HD_mean) %>%
-  dplyr::select(id, dam, sire, resid_HD_mean_id, resid_HD_mean_dam)
+# merge - to get ID mean LD for id and dam
+ped_gtit_HD <- dplyr::inner_join(ped_gtit, breed_gtit_mothHD, by = c("id" = "mother")) %>%
+  dplyr::rename(resid_hd_mean_id = resid_hd_mean) %>%
+  dplyr::select(id, dam, sire, resid_hd_mean_id) %>%
+  dplyr::inner_join(., breed_gtit_mothHD, by = c("dam" = "mother")) %>%
+  dplyr::rename(resid_hd_mean_dam = resid_hd_mean) %>%
+  dplyr::select(id, dam, sire, resid_hd_mean_id, resid_hd_mean_dam)
 
 head(ped_gtit_HD)
-nrow(ped_gtit_HD) #3086
+nrow(ped_gtit_HD) # 3191
 
 # MERGE TO MAKE DATA WITH LD, YR, DISP DIST  ------------------------------------------------------
 
-#get mothers first breeding attempt as already have where born
+# get mothers first breeding attempt as already have where born
 disp_HD <- breed_gtit_sub_hat %>%
-  dplyr::group_by(Mother) %>%
+  dplyr::group_by(mother) %>%
   dplyr::slice_min(order_by = breeding_year) %>%
   dplyr::ungroup() %>%
-  dplyr::select(Mother, breeding_year, nest.box) %>%
-  dplyr::inner_join(ped_big, ., by = c('bto_ring' = 'Mother')) %>%
-  dplyr::rename(nestbox_firstbr = nest.box,
-                id = bto_ring,
-                dam = Mother) %>%
+  dplyr::select(mother, nest_box) %>%
+  dplyr::inner_join(ped_big, ., by = c("bto_ring" = "mother")) %>%
+  dplyr::rename(
+    nestbox_firstbr = nest_box,
+    id = bto_ring,
+    dam = mother
+  ) %>%
   dplyr::select(id, dam, nest_box_born_in, nestbox_firstbr) %>%
-  #merge with nestbox to get locations and distance
-  dplyr::inner_join(., habitat_data, by = c('nest_box_born_in' = 'Box')) %>%
-  dplyr::rename(x_born = x,
-                y_born = y) %>%
-  dplyr::inner_join(., habitat_data, by = c('nestbox_firstbr' = 'Box')) %>%
-  dplyr::rename(x_breed = x,
-                y_breed = y) %>%
+  # merge with nestbox to get locations and distance
+  dplyr::inner_join(., habitat_data, by = c("nest_box_born_in" = "box")) %>%
+  dplyr::rename(
+    x_born = x,
+    y_born = y
+  ) %>%
+  dplyr::inner_join(., habitat_data, by = c("nestbox_firstbr" = "box")) %>%
+  dplyr::rename(
+    x_breed = x,
+    y_breed = y
+  ) %>%
   dplyr::mutate(disp_dist = sqrt((x_breed - x_born)^2 + (y_breed - y_born)^2)) %>%
-  #merge to get LDs
-  dplyr::inner_join(., ped_gtit_HD, by = c('id', 'dam'))
-  
-#nest_box_born in is bto_ring's nest box born in
-#nestbox_firstbr is bto_ring's first nest box they bred in (dispersal box)
+  # merge to get LDs
+  dplyr::inner_join(., ped_gtit_HD, by = c("id", "dam"))
+
+# nest_box_born in is bto_ring's nest box born in
+# nestbox_firstbr is bto_ring's first nest box they bred in (dispersal box)
 
 head(disp_HD)
-nrow(disp_HD) #3065
+nrow(disp_HD) # 3187
 
 median(disp_HD$disp_dist)
 mean(disp_HD$disp_dist)
 
-saveRDS(disp_HD, file = file.path(dirs$data,'mothers_daughter_disp_HD.rds'))
-
-
+saveRDS(disp_HD, file = file.path(dirs$data, "mothers_daughter_disp_HD.rds"))
 ```
 
 
 PLOTS OF LAY DATES
 
 ```{r}
-
-#BIG PLOT - write up
-ggplot(disp_HD, aes(x = resid_HD_mean_dam, y = resid_HD_mean_id)) +
-  geom_point(alpha = 0.4, colour = '#6495ED') +
-  geom_smooth(method = 'lm', colour = '#3159A0') +
-  xlab("Mother's mean hatching date") + ylab("Daughter's mean hatching date") +
-  theme(panel.background = element_rect(fill = "white", color = "white"),
-        plot.background = element_rect(fill = "white", color = "white"),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.major.y = element_line(color = 'grey'),
-        #axis.title.x = element_text(colour = "#a4948c"),
-        #axis.title.y = element_text(colour = "#a4948c"),
-        text = element_text(color="black", face = 'bold', size = 16), 
-        axis.text = element_text(color="black", face = 'bold', size = 12)) 
-#paste this heritability somewhere
-round(summary(lm(disp_HD$resid_HD_mean_id ~ disp_HD$resid_HD_mean_dam))$coefficient[2]*2, 2) #0.23
-
-
-#what is heritability?
-summary(lm(disp_HD$resid_HD_mean_id ~ disp_HD$resid_HD_mean_dam)) #0.113 (0.020)
-#heritabiltiy = slope * 2
-summary(lm(disp_HD$resid_HD_mean_id ~ disp_HD$resid_HD_mean_dam))$coefficient[2]*2 #0.23
-
-nrow(disp_LD) #3322
-
-
+# heritabiltiy = slope * 2
+summary(lm(disp_HD$resid_hd_mean_id ~ disp_HD$resid_hd_mean_dam))$coefficient[2] * 2 # 0.24
 ```
 
 GROUPING DISPERSAL DISTANCE
 
 ```{r}
-#make column classing disp distance to short, medium, large 
+# make column classing disp distance to short, medium, large
 
-disp_HD <- disp_HD %>% 
-  dplyr::mutate(disp_dist_split =
-                  dplyr::case_when(disp_dist <= 500 ~ "short", 
-                               disp_dist > 500 & disp_dist <= 1000 ~ "medium",
-                               disp_dist > 1000 ~ "long")
-)
+disp_HD <- disp_HD %>%
+  dplyr::mutate(
+    disp_dist_split =
+      dplyr::case_when(
+        disp_dist <= 500 ~ "short",
+        disp_dist > 500 & disp_dist <= 1000 ~ "medium",
+        disp_dist > 1000 ~ "long"
+      )
+  )
 table(disp_HD$disp_dist_split)
 
-#mean of each group
+# mean of each group
 disp_HD_summ <- disp_HD %>%
   dplyr::group_by(., disp_dist_split) %>%
-  dplyr::summarise(., length = length(disp_dist_split),
-            mean_disp = mean(disp_dist),
-            median_disp = median(disp_dist))
+  dplyr::summarise(.,
+    length = length(disp_dist_split),
+    mean_disp = mean(disp_dist),
+    median_disp = median(disp_dist)
+  )
 disp_HD_summ
 
- #plot each group by itself
-#short
-ggplot(subset(disp_HD, disp_dist_split == 'short'), 
-       aes(x = resid_HD_mean_dam, y = resid_HD_mean_id)) + 
-  geom_point(alpha = 0.6, colour = 'cornflower blue') +
-  geom_smooth(method = 'lm', colour = 'dark blue') +
-  theme_bw() 
-#medium
-ggplot(subset(disp_HD, disp_dist_split == 'medium'), 
-       aes(x = resid_HD_mean_dam, y = resid_HD_mean_id)) + 
-  geom_point() + theme_bw() + geom_smooth(method = 'lm')
-#long
-ggplot(subset(disp_HD, disp_dist_split == 'long'), 
-       aes(x = resid_HD_mean_dam, y = resid_HD_mean_id)) + 
-  geom_point() + theme_bw() + geom_smooth(method = 'lm')
 
-#linear models 
-summary(lm(resid_HD_mean_id ~ resid_HD_mean_dam, data = subset(disp_HD, disp_dist_split == 'short')))
-#0.17986 +- 0.03712, p < 0.001, N = 962
-summary(lm(resid_HD_mean_id ~ resid_HD_mean_dam, data = subset(disp_HD, disp_dist_split == 'medium')))
-#0.09436 +- 0.03584, p = 0.009, N = 1075
-summary(lm(resid_HD_mean_id ~ resid_HD_mean_dam, data = subset(disp_HD, disp_dist_split == 'long')))
-#0.07417 +- 0.03227, p = 0.022, N = 1250
+
+# linear models
+short_output_hd <- summary(lm(resid_hd_mean_id ~ resid_hd_mean_dam,
+  data = subset(disp_HD, disp_dist_split == "short")
+))
+# 0.17986 +- 0.03712, p < 0.001, N = 962
+short_output_hd$coefficient[2] * 2
+
+medium_output_hd <- summary(lm(resid_hd_mean_id ~ resid_hd_mean_dam,
+  data = subset(disp_HD, disp_dist_split == "medium")
+))
+# 0.09436 +- 0.03584, p = 0.009, N = 1075
+medium_output_hd$coefficient[2] * 2
+
+
+long_output_hd <- summary(lm(resid_hd_mean_id ~ resid_hd_mean_dam,
+  data = subset(disp_HD, disp_dist_split == "long")
+))
+# 0.07417 +- 0.03227, p = 0.022, N = 1250
+long_output_hd$coefficient[2] * 2
 
 
 str(daughters_mothers_noNA)
-#test difference in slope across dispersal classess?
-summary(glm(resid_LD_mean_id ~ resid_LD_mean_dam + disp_dist_split + disp_dist_split*resid_LD_mean_dam,
-            data = disp_LD))
-mod1 <- glm(resid_LD_mean_id ~ resid_LD_mean_dam + disp_dist_split + disp_dist_split*resid_LD_mean_dam,
-            data = disp_LD)
+# test difference in slope across dispersal classess?
+summary(glm(resid_ld_mean_id ~ resid_ld_mean_dam + disp_dist_split + disp_dist_split * resid_ld_mean_dam,
+  data = disp_LD
+))
+mod1 <- glm(resid_ld_mean_id ~ resid_ld_mean_dam + disp_dist_split + disp_dist_split * resid_ld_mean_dam,
+  data = disp_LD
+)
 summary(anova(mod1))
 
 
-#plot with facet - for presentation 
-ggplot(transform(daughters_mothers_noNA,
-                 disp_dist_split = factor(disp_dist_split, 
-                                          levels=c("short","medium","long"))), 
-       aes(x = resid_LD_mean_dam, y = resid_LD_mean_id)) +
-  geom_point(alpha = 0.4, colour = '#8ca494') +
-  geom_smooth(method = 'lm', colour = '#64848c') +
-  facet_wrap(~disp_dist_split) +
-  xlab("Mother's mean laying date") + ylab("Daughter's mean laying date") +
-  theme(panel.background = element_rect(fill = "#f8efdf", color = "#f8efdf"),
-        plot.background = element_rect(fill = "#f8efdf", color = "#f8efdf"),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.major.y = element_line(color = '#a4948c'),
-        #axis.title.x = element_text(colour = "#a4948c"),
-        #axis.title.y = element_text(colour = "#a4948c"),
-        text = element_text(color="#a4948c", face = 'bold', size = 20), 
-        axis.text = element_text(color="#a4948c", face = 'bold', size = 16),
-        legend.position = c(.972, .972),
-        legend.justification = c("right", "top"),
-        legend.box.just = "right",
-        legend.margin = margin(6, 6, 6, 6),
-        legend.background = element_blank(),
-        legend.box.background = element_blank(),
-        strip.text.x = element_text(size=14, colour = '#64848c', face = 'bold'),
-        strip.background = element_rect(colour="#f8efdf", fill="#f8efdf"))
-#axis.line.x = element_line(size = 0.5, linetype = "solid", colour = "#a4948c"),
-#axis.line.y = element_line(size = 0.5, linetype = "solid", colour = "#a4948c"))  
 
-
-#plot with facet - for write up!
-ggplot(transform(disp_LD,
-                 disp_dist_split = factor(disp_dist_split, 
-                                          levels=c("short","medium","long"))), 
-       aes(x = resid_LD_mean_dam, y = resid_LD_mean_id)) +
-  geom_point(alpha = 0.4, colour = 'aquamarine3') +
-  geom_smooth(method = 'lm', colour = '#29705c') +
+# plot with facet - for write up!
+ggplot(
+  transform(disp_LD,
+    disp_dist_split = factor(disp_dist_split,
+      levels = c("short", "medium", "long")
+    )
+  ),
+  aes(x = resid_ld_mean_dam, y = resid_ld_mean_id)
+) +
+  geom_point(alpha = 0.4, colour = "aquamarine3") +
+  geom_smooth(method = "lm", colour = "#29705c") +
   facet_wrap(~disp_dist_split) +
-  xlab("Mother's mean hatching date") + ylab("Daughter's mean hatching date") +
-  theme(panel.background = element_rect(fill = "white", color = "white"),
-        plot.background = element_rect(fill = "white", color = "white"),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.major.y = element_line(color = 'grey'),
-        #axis.title.x = element_text(colour = "#a4948c"),
-        #axis.title.y = element_text(colour = "#a4948c"),
-        text = element_text(color="black", face = 'bold', size = 16), 
-        axis.text = element_text(color="black", face = 'bold', size = 12),
-        legend.position = c(.972, .972),
-        legend.justification = c("right", "top"),
-        legend.box.just = "right",
-        legend.margin = margin(6, 6, 6, 6),
-        legend.background = element_blank(),
-        legend.box.background = element_blank(),
-        strip.text.x = element_text(size=14, colour = 'black', face = 'bold'),
-        strip.background = element_rect(colour="white", fill="white"))
+  xlab("mother's mean hatching date") +
+  ylab("Daughter's mean hatching date") +
+  theme(
+    panel.background = element_rect(fill = "white", color = "white"),
+    plot.background = element_rect(fill = "white", color = "white"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_line(color = "grey"),
+    # axis.title.x = element_text(colour = "#a4948c"),
+    # axis.title.y = element_text(colour = "#a4948c"),
+    text = element_text(color = "black", face = "bold", size = 16),
+    axis.text = element_text(color = "black", face = "bold", size = 12),
+    legend.position = c(.972, .972),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6),
+    legend.background = element_blank(),
+    legend.box.background = element_blank(),
+    strip.text.x = element_text(size = 14, colour = "black", face = "bold"),
+    strip.background = element_rect(colour = "white", fill = "white")
+  )
 
 
 theme_bw()
-#axis.line.x = element_line(size = 0.5, linetype = "solid", colour = "#a4948c"),
-#axis.line.y = element_line(size = 0.5, linetype = "solid", colour = "#a4948c"))  
-
+# axis.line.x = element_line(size = 0.5, linetype = "solid", colour = "#a4948c"),
+# axis.line.y = element_line(size = 0.5, linetype = "solid", colour = "#a4948c"))
 ```
 
 
