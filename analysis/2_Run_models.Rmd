@@ -81,7 +81,7 @@ ped_data <- read.csv(file.path(dirs$data_output, "GTIT-pedigree-for-asreml.csv")
 nrow(ped_data) # 15744
 
 # get inverse of matrix
-ped_data_inv <- asreml::ainverse(ped_gtit_final)
+ped_data_inv <- asreml::ainverse(ped_data)
 
 # create another column to associate with second matrix
 
