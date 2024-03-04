@@ -158,7 +158,7 @@ LD_all_merge <- LD_all %>%
   dplyr::select(-c(SE, Rel_SE))
 # this is table use in results!
 
-write.csv(LD_all_merge, file = file.path(dirs$data_output, "LD_model_output.csv"), row.names = F)
+write.csv(LD_all_merge, file = file.path(dirs$model_output, "LD_model_output.csv"), row.names = F)
 ```
 
 ```{r Hatch Date Output}
@@ -217,7 +217,7 @@ HD_all_merge <- HD_all %>%
   select(-c(SE, Rel_SE))
 # this is table use in results!
 
-write.csv(HD_all_merge, file = file.path(dirs$data_output, "HD_model_output.csv"), row.names = F)
+write.csv(HD_all_merge, file = file.path(dirs$model_output, "HD_model_output.csv"), row.names = F)
 ```
 
 
