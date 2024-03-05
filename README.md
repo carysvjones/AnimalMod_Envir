@@ -10,7 +10,7 @@ Analysis for animal model paper...
 
 <br>
 
-<b>Run main analysis</b>
+<b>Run main analysis:</b>
 
 1. Open the `AnimalMod_Envir.Rproj` file.
    
@@ -24,8 +24,9 @@ Uses functions from `R/clean_data.R`, for cleaning up the data, mostly removing 
 
 5. `analysis/3_Model_output.Rmd` goes through extracting variance componenets from all models and merging to tables, as well as plotting the output.
 
+<br>
 
-<b>Supplementary Materials</b>
+<b>Supplementary Materials:</b>
 
 6. `analysis/3.1_Regression_analysis.R` is analysis for Section 1 of the Supplementary Info, including data analysis and plots.
 7. `analysis/3.2_Supplementary.R` creates all plots in Section 2 of the Supplementary Info.
