@@ -28,7 +28,7 @@ output_plot_theme <- theme(
   axis.text.x = element_text(size = 9), # Adjust the size as needed
   axis.text.y = element_text(
     size = 9,
-    #face = "bold"
+    # face = "bold"
   ),
   axis.title.x = element_text(
     size = 12,
@@ -42,7 +42,7 @@ output_plot_theme <- theme(
   ),
   legend.title = element_text(
     size = 8,
-    #face = "bold",
+    # face = "bold",
     hjust = 0.5
   ),
   legend.text = element_text(
@@ -106,8 +106,8 @@ median(dists$dist, na.rm = T) # 60.75m
 mean(dists$dist, na.rm = T) # 93.30m
 range(dists$dist, na.rm = T) # 0 - 2647.5m
 
-#sum up the number that went 0m
-nrow(subset(dists, dist == 0)) #958
+# sum up the number that went 0m
+nrow(subset(dists, dist == 0)) # 958
 
 # plot
 breed_disp <-
@@ -141,53 +141,6 @@ ggsave(
 
 
 # MATRICES -----------------------------------------------------------
-
-# correlation of environmental factors
-habitat_data <- read.csv(file.path(
-  dirs$data_output,
-  "Habitat_data_nestboxes.csv"
-), na.strings = "NA") %>%
-  janitor::clean_names()
-
-# get one row for each box
-habitat_data_uniq <- habitat_data %>%
-  dplyr::distinct(box, .keep_all = TRUE)
-
-# scale and centre altitude_m, northness, edge_edi, no_trees_75m
-# get correlation between altitude and northness for each box
-
-cor.test(
-  habitat_data_uniq$altitude_m, habitat_data_uniq$northness,
-  method = "pearson", conf.level = 0.95
-) # 0.019
-
-#or do for all individuals....
-cor.test(
-    gtit_data_sub_nb$alt_mean, gtit_data_sub_nb$northness_mean,
-  method = "pearson", conf.level = 0.95
-) # 0.019
-
-###
-cor.test(
-  habitat_data$altitude_m, habitat_data$northness,
-  method = "pearson", conf.level = 0.95
-) # 0.019
-
-cor.test(
-  habitat_data_uniq$altitude_m, habitat_data_uniq$edge_edi,
-  method = "pearson", conf.level = 0.95
-) #
-
-cor.test(
-  habitat_data_uniq$altitude_m, habitat_data_uniq$no_trees_75m,
-  method = "pearson", conf.level = 0.95
-) #
-
-cor.test(
-  habitat_data_uniq$altitude_m, habitat_data_uniq$edge_edi,
-  method = "pearson", conf.level = 0.95
-) #
-
 
 env_matrix <- readRDS(file.path(
   dirs$data_output,
@@ -223,51 +176,12 @@ mantel_matrices <- vegan::mantel(
   env_matrix,
   spatial_matrix_raw,
   method = "spearman",
-  permutations = 10,
+  permutations = 1,
   na.rm = TRUE
 )
 
-#get z score from mantel test
-mantel_matrices$observed
-
-
-library(foreach)
-library(doParallel)
-library(vegan)
-
-# Set up parallel processing
-cores <- detectCores() # Get number of available cores
-cl <- makeCluster(cores) # Create a cluster object
-registerDoParallel(cl) # Register the parallel backend
-
-# Perform parallel Mantel test
-mantel_results <- foreach(i = 1:10, .combine = rbind) %dopar% {
-  mantel_result <- mantel(
-    env_matrix,
-    spatial_matrix_raw,
-    method = "spearman",
-    permutations = 1, # Each iteration performs one permutation
-    na.rm = TRUE
-  )
-  return(mantel_result)
-}
-
-# Stop the cluster
-stopCluster(cl)
-
-# Combine results
-mantel_matrices <- do.call(rbind, mantel_results)
-
-# View results
-print(mantel_matrices)
-
-
-
-future::plan("multisession", workers = 4)
-results <- furrr::future_map(
-  1:4, ~ get_group_stats(df$value[df$group == .x])
-)
-
+# save
+saveRDS(results, file = file.path(dirs$data_output, "mantel_output.rds"))
 
 
 # Make to table -----------------------------------------------------------
@@ -280,12 +194,6 @@ spatial_raw_df <- spatial_raw_df[
   spatial_raw_df$Mother1 != spatial_raw_df$Mother2,
 ]
 nrow(spatial_raw_df) # 58974720
-
-# 1st try to convert env to df
-# regular_matrix <- as.matrix(env_matrix)
-# envir_scal_df <- as.data.frame(as.table(regular_matrix))
-# colnames(envir_scal_df) <- c("Mother1", "Mother2", "dist")
-
 
 # For environ matrix - is saved as a different type to save space
 # Get row and column names
@@ -320,44 +228,9 @@ spat_env_df %>%
   dplyr::filter(Mother1 == Mother2) %>%
   nrow() # 0
 
-# subset to just 500 rows
-spat_env_df <- spat_env_df[1:5000, ]
-
-head(spat_env_df)
-
-summary(spat_env_df$env_sim)
-summary(spat_env_df$dist)
-
-
-cor(spat_env_df$env_sim, spat_env_df$dist)
-
+max(spat_env_df$dist)
 
 # SUPP PLOTS -------------------------------------------------------------------
-
-# make extra column with distance grouped into 200m segments
-spat_env_df$distance_bin <- cut(spat_env_df$dist,
-  breaks = seq(0, 4000, by = 100), right = FALSE
-)
-
-# bin spat_env_df dist_raw into 200m segments and box plot each one
-dist_env_boxplot_bin <-
-  ggplot(spat_env_df, aes(x = distance_bin, y = env_sim)) +
-  geom_violin(aes(fill = mean(env_sim)))+
-  xlab("Distance (m)") +
-  ylab("Environmental Similarity") +
-  output_plot_theme
-
-ggsave(
-  filename = file.path(dirs$plots, "dist_env_boxplot_bin.pdf"),
-  plot = dist_env_boxplot_bin,
-  scale = 1,
-  width = 15,
-  height = 10,
-  units = "cm",
-  dpi = 350,
-  limitsize = FALSE,
-  bg = "transparent"
-)
 
 
 # environmental similarity
@@ -371,7 +244,7 @@ envir_sim_hist <-
     bins = 30,
     fill = "#77AADE",
     colour = "#2F5597"
-    #alpha = 0.7
+    # alpha = 0.7
   ) +
   # geom_density(
   #   fill = "#77AADE",
@@ -405,71 +278,38 @@ ggsave(
 
 # Compare with distance matrix --------------------------------------------
 
-
 summary(lm(spat_env_df$env_sim ~ spat_env_df$dist))
 cor(spat_env_df$dist, spat_env_df$env_sim)
 
-
-## density plot
-bin2d_plot <- ggplot(spat_env_df, aes(x = dist, y = env_sim)) +
-  geom_bin2d(bins = 60) +
-  scale_fill_gradient(high = "#E7E4EF", low = "#4945A0") +
-  # scale_fill_continuous(type = "viridis") +
-  output_plot_theme
-bin2d_plot
-
-
-subset(spat_env_df, dist > 500 & dist < 1000) %>%
-  ggplot(aes(x = dist, y = env_sim)) +
-  geom_bin2d() +
-  scale_fill_gradient(high = "#E7E4EF", low = "#4945A0") +
-  output_plot_theme
-
-
-
-
-ggsave(
-  filename = file.path(dirs$plots, "compare_matrices_bin2d.png"),
-  plot = bin2d_plot,
-  scale = 1,
-  width = 26,
-  height = 22,
-  units = "cm",
-  dpi = 350,
-  limitsize = FALSE,
-  bg = "transparent"
-)
-nrow(spat_env_df)
-
-
-# poster plot - opposite colours
+# hex plot
 comp_mat_opp <- ggplot(spat_env_df, aes(x = dist, y = env_sim)) +
   geom_hex() +
   output_plot_theme +
-  scale_fill_gradient(low = "#2F5597", high = "#E7E4EF") + 
-  xlab("Distance (metres)") + 
-  ylab("Breeding environment similarity") + 
-  #name legend
-  labs (fill='Count') + 
-  theme(  axis.title.x = element_text(
-    size = 16,
-    face = "bold",
-    margin = margin(t = 8)
-  ),
-  axis.title.y = element_text(
-    size = 16,
-    face = "bold",
-    margin = margin(r = 10)
-  ),
-  legend.title = element_text(
-    size = 12,
-    face = "bold",
-    hjust = 0.5
-  ),
-  legend.text = element_text(
-    size = 10,
-    hjust = 0
-  )
+  scale_fill_gradient(low = "#2F5597", high = "#E7E4EF") +
+  xlab("Distance (metres)") +
+  ylab("Breeding environment similarity") +
+  # name legend
+  labs(fill = "Count") +
+  theme(
+    axis.title.x = element_text(
+      size = 16,
+      face = "bold",
+      margin = margin(t = 8)
+    ),
+    axis.title.y = element_text(
+      size = 16,
+      face = "bold",
+      margin = margin(r = 10)
+    ),
+    legend.title = element_text(
+      size = 12,
+      face = "bold",
+      hjust = 0.5
+    ),
+    legend.text = element_text(
+      size = 10,
+      hjust = 0
+    )
   )
 
 ggsave(
@@ -477,79 +317,6 @@ ggsave(
   plot = comp_mat_opp,
   scale = 1,
   width = 26,
-  height = 22,
-  units = "cm",
-  dpi = 350,
-  limitsize = FALSE,
-  bg = "transparent"
-)
-
-
-
-
-
-# what about make most similar 0
-nest_both$dist2 <- 1 - nest_both$dist
-nest_both$envir2 <- 1 - nest_both$envir
-
-comp_mat_zero <- ggplot(nest_both, aes(x = dist2, y = envir2)) +
-  geom_hex() +
-  scale_fill_gradient(low = "#4945A0", high = "#E7E4EF") +
-  xlab("Spatial") +
-  ylab("Environment") +
-  theme(
-    panel.background =
-      element_rect(fill = "transparent"), # transparent panel bg
-    plot.background =
-      element_rect(fill = "transparent", color = NA), # transparent plot bg
-    panel.grid.major = element_blank(), # remove major gridlines
-    panel.grid.minor = element_blank(), # remove minor gridlines
-    legend.background =
-      element_rect(fill = "transparent"), # transparent legend bg
-    legend.box.background =
-      element_rect(fill = "transparent"), # transparent legend panel
-    # panel.background = element_rect(fill = "#B4C7E7", color = "#B4C7E7"),
-    # plot.background = element_rect(fill = "#B4C7E7", color = "#B4C7E7"),
-    # panel.grid.major.x = element_blank(),
-    # panel.grid.minor.x = element_blank(),
-    # panel.grid.minor.y = element_blank(),
-    # panel.grid.major.y = element_blank(),
-    # axis.title.x = element_text(colour = "#a4948c"),
-    # axis.title.y = element_text(colour = "#a4948c"),
-    text = element_text(color = "#2F5597", face = "bold", size = 34),
-    axis.text = element_text(color = "#2F5597", face = "bold", size = 24)
-  )
-# legend.position = 'none')
-
-
-ggsave(
-  filename = "./plots/comp_mat_zero_legend.png",
-  plot = comp_mat_zero,
-  scale = 1,
-  width = 22,
-  height = 22,
-  units = "cm",
-  dpi = 350,
-  limitsize = FALSE,
-  bg = "transparent"
-)
-
-
-# plot with raw distance and environment similarity with 1 most similar
-raw_plot <- ggplot(nest_both, aes(x = dist_raw, y = envir_raw)) +
-  geom_hex() +
-  scale_fill_gradient(low = "#4945A0", high = "#E7E4EF") +
-  xlab("Distance (m)") +
-  ylab("Environmental Similarity") +
-  output_plot_theme
-
-raw_plot
-
-ggsave(
-  filename = "./plots/comp_mat_raw_plot.png",
-  plot = raw_plot,
-  scale = 1,
-  width = 22,
   height = 22,
   units = "cm",
   dpi = 350,
