@@ -20,8 +20,8 @@
 /data_raw/
 /data_output/
 /plots/
+#/model_output/ 
 
-/model_output/ 
 # will add back in later
 
 # Example code in package build process
