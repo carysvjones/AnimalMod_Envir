@@ -17,8 +17,20 @@
 
 # User-specific files
 .Ruserdata
-/data_raw/
-/data_output/
+#/data_raw/
+/data_output/env_matrix.rds
+/data_output/GTIT_data_anim_mod.csv
+/data_output/GTIT_pedigree_full.csv
+/data_output/GTIT-pedigree-for-asreml.csv
+/data_output/GTIT-pedigree-full-fixed.csv
+/data_output/GTIT-pedigree-full.csv
+/data_output/mothers_daughter_disp_LD.rds
+/data_output/spat_env_df.rds
+/data_output/spatial_matrix.rds
+/data_output/territories_plot.rds
+/data_output/LT_breeding_data_greti_bluti_1960_2022_raw.csv
+
+#include all but one files in a folder
 /plots/
 #/model_output/ 
 
