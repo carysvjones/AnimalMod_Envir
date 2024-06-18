@@ -5,7 +5,7 @@
 # DEPENDENCIES ─────────────────────────────────────────────────────────────── #
 
 
-box::use(mod = .. / R / for_models)
+box::use(mod = .. / R / for_analysis)
 
 box::use(magrittr[`%>%`])
 box::use(dplyr)
